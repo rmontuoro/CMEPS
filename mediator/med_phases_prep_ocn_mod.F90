@@ -4,18 +4,26 @@ module med_phases_prep_ocn_mod
   ! Mediator phases for preparing ocn export from mediator
   !-----------------------------------------------------------------------------
 
-  use med_internalstate_mod , only : mastertask
+  use med_kind_mod          , only : CX=>SHR_KIND_CX, CS=>SHR_KIND_CS, CL=>SHR_KIND_CL, R8=>SHR_KIND_R8
+  use med_constants_mod     , only : czero=>med_constants_czero
   use med_constants_mod     , only : dbug_flag     => med_constants_dbug_flag
-  use shr_nuopc_utils_mod   , only : memcheck      => shr_nuopc_memcheck
-  use shr_nuopc_utils_mod   , only : chkerr        => shr_nuopc_utils_ChkErr
-  use shr_nuopc_methods_mod , only : FB_diagnose   => shr_nuopc_methods_FB_diagnose
-  use shr_nuopc_methods_mod , only : FB_getNumFlds => shr_nuopc_methods_FB_getNumFlds
-  use shr_nuopc_methods_mod , only : FB_fldchk     => shr_nuopc_methods_FB_FldChk
-  use shr_nuopc_methods_mod , only : FB_GetFldPtr  => shr_nuopc_methods_FB_GetFldPtr
-  use shr_nuopc_methods_mod , only : FB_accum      => shr_nuopc_methods_FB_accum
-  use shr_nuopc_methods_mod , only : FB_average    => shr_nuopc_methods_FB_average
-  use shr_nuopc_methods_mod , only : FB_copy       => shr_nuopc_methods_FB_copy
-  use shr_nuopc_methods_mod , only : FB_reset      => shr_nuopc_methods_FB_reset
+  use med_internalstate_mod , only : InternalState, mastertask, logunit
+  use med_merge_mod         , only : med_merge_auto, med_merge_field
+  use med_map_mod           , only : med_map_FB_Regrid_Norm
+  use med_utils_mod         , only : memcheck      => med_memcheck
+  use med_utils_mod         , only : chkerr        => med_utils_ChkErr
+  use med_methods_mod       , only : FB_diagnose   => med_methods_FB_diagnose
+  use med_methods_mod       , only : FB_getNumFlds => med_methods_FB_getNumFlds
+  use med_methods_mod       , only : FB_fldchk     => med_methods_FB_FldChk
+  use med_methods_mod       , only : FB_GetFldPtr  => med_methods_FB_GetFldPtr
+  use med_methods_mod       , only : FB_accum      => med_methods_FB_accum
+  use med_methods_mod       , only : FB_average    => med_methods_FB_average
+  use med_methods_mod       , only : FB_copy       => med_methods_FB_copy
+  use med_methods_mod       , only : FB_reset      => med_methods_FB_reset
+  use esmFlds               , only : fldListFr, fldListTo
+  use esmFlds               , only : compocn, compatm, compice, ncomps, compname
+  use esmFlds               , only : coupling_mode
+  use perf_mod              , only : t_startf, t_stopf
 
   implicit none
   private
@@ -38,15 +46,10 @@ contains
     ! Map all fields in from relevant source components to the ocean grid
     !---------------------------------------
 
-    use ESMF                  , only : ESMF_GridComp, ESMF_Clock, ESMF_Time
-    use ESMF                  , only : ESMF_LogWrite, ESMF_LOGMSG_INFO,ESMF_SUCCESS
-    use ESMF                  , only : ESMF_GridCompGet, ESMF_ClockGet, ESMF_TimeGet, ESMF_ClockPrint
-    use ESMF                  , only : ESMF_FieldBundleGet
-    use med_internalstate_mod , only : InternalState
-    use med_map_mod           , only : med_map_FB_Regrid_Norm
-    use esmFlds               , only : fldListFr
-    use esmFlds               , only : compocn, ncomps, compname
-    use perf_mod              , only : t_startf, t_stopf
+    use ESMF , only : ESMF_GridComp, ESMF_Clock, ESMF_Time
+    use ESMF , only : ESMF_LogWrite, ESMF_LOGMSG_INFO,ESMF_SUCCESS
+    use ESMF , only : ESMF_GridCompGet, ESMF_ClockGet, ESMF_TimeGet, ESMF_ClockPrint
+    use ESMF , only : ESMF_FieldBundleGet
 
     ! input/output variables
     type(ESMF_GridComp)  :: gcomp
@@ -89,13 +92,13 @@ contains
        do n1 = 1,ncomps
           if (is_local%wrap%med_coupling_active(n1,compocn)) then
              call med_map_FB_Regrid_Norm( &
-                  fldListFr(n1)%flds, n1, compocn, &
-                  is_local%wrap%FBImp(n1,n1), &
-                  is_local%wrap%FBImp(n1,compocn), &
-                  is_local%wrap%FBFrac(n1), &
-                  is_local%wrap%FBFrac(compocn), &
-                  is_local%wrap%FBNormOne(n1,compocn,:), &
-                  is_local%wrap%RH(n1,compocn,:), &
+                  fldsSrc=fldListFr(n1)%flds,&
+                  srccomp=n1, destcomp=compocn, &
+                  FBSrc=is_local%wrap%FBImp(n1,n1), &
+                  FBDst=is_local%wrap%FBImp(n1,compocn), &
+                  FBFracSrc=is_local%wrap%FBFrac(n1), &
+                  FBNormOne=is_local%wrap%FBNormOne(n1,compocn,:), &
+                  RouteHandles=is_local%wrap%RH(n1,compocn,:), &
                   string=trim(compname(n1))//'2'//trim(compname(compocn)), rc=rc)
              if (ChkErr(rc,__LINE__,u_FILE_u)) return
           endif
@@ -113,16 +116,9 @@ contains
 
   subroutine med_phases_prep_ocn_merge(gcomp, rc)
 
-    use ESMF                  , only : ESMF_GridComp, ESMF_FieldBundleGet
-    use ESMF                  , only : ESMF_LogWrite, ESMF_LOGMSG_INFO, ESMF_SUCCESS
-    use ESMF                  , only : ESMF_FAILURE,  ESMF_LOGMSG_ERROR
-    use med_constants_mod     , only : R8, CS
-    use med_internalstate_mod , only : InternalState, mastertask, logunit
-    use med_merge_mod         , only : med_merge_auto, med_merge_field
-    use esmFlds               , only : fldListTo
-    use esmFlds               , only : compocn, compname, compatm, compice
-    use esmFlds               , only : coupling_mode
-    use perf_mod              , only : t_startf, t_stopf
+    use ESMF , only : ESMF_GridComp, ESMF_FieldBundleGet
+    use ESMF , only : ESMF_LogWrite, ESMF_LOGMSG_INFO, ESMF_SUCCESS
+    use ESMF , only : ESMF_FAILURE,  ESMF_LOGMSG_ERROR
 
     ! input/output variables
     type(ESMF_GridComp)  :: gcomp
@@ -177,6 +173,8 @@ contains
     real(R8)        , parameter    :: const_lhvap = 2.501e6_R8  ! latent heat of evaporation ~ J/kg
     real(R8)        , parameter    :: albdif = 0.06_r8          ! 60 deg reference albedo, diffuse
     character(len=*), parameter    :: subname='(med_phases_prep_ocn_merge)'
+    ! Set the following to true if want to compare directly to MCT
+    logical :: compare_to_mct = .false.
     !---------------------------------------
 
     call t_startf('MED:'//subname)
@@ -346,6 +344,7 @@ contains
                    ifrac_scaled = ifrac(n) / (frac_sum)
                    ofrac_scaled = ofrac(n) / (frac_sum)
                 endif
+
                 ifracr_scaled = ifracr(n)
                 ofracr_scaled = ofracr(n)
                 frac_sum = ifracr(n) + ofracr(n)
@@ -364,25 +363,38 @@ contains
                 Foxx_swnet_afracr(n) = ofracr_scaled*(fswabsv + fswabsi) 
              end if
 
-             if (export_swnet_by_bands) then
-                if (import_swpen_by_bands) then
-                   ! use each individual band for swpen coming from the sea-ice
-                   Foxx_swnet_vdr(n) = Faxa_swvdr(n)*(1.0_R8-albvis_dir)*ofracr_scaled + Fioi_swpen_vdr(n)*ifrac_scaled
-                   Foxx_swnet_vdf(n) = Faxa_swvdf(n)*(1.0_R8-albvis_dif)*ofracr_scaled + Fioi_swpen_vdf(n)*ifrac_scaled
-                   Foxx_swnet_idr(n) = Faxa_swndr(n)*(1.0_R8-albnir_dir)*ofracr_scaled + Fioi_swpen_idr(n)*ifrac_scaled
-                   Foxx_swnet_idf(n) = Faxa_swndf(n)*(1.0_R8-albnir_dif)*ofracr_scaled + Fioi_swpen_idf(n)*ifrac_scaled
-                else
-                   ! scale total Foxx_swnet to get contributions from each band
-                   c1 = 0.285
-                   c2 = 0.285
-                   c3 = 0.215
-                   c4 = 0.215
-                   Foxx_swnet_vdr(n) = c1 * Foxx_swnet(n)
-                   Foxx_swnet_vdf(n) = c2 * Foxx_swnet(n)
-                   Foxx_swnet_idr(n) = c3 * Foxx_swnet(n)
-                   Foxx_swnet_idf(n) = c4 * Foxx_swnet(n)
+             ! To compare to mct
+             if (compare_to_mct) then
+                c1 = 0.285
+                c2 = 0.285
+                c3 = 0.215
+                c4 = 0.215
+                Foxx_swnet_vdr(n) = c1 * Foxx_swnet(n)
+                Foxx_swnet_vdf(n) = c2 * Foxx_swnet(n)
+                Foxx_swnet_idr(n) = c3 * Foxx_swnet(n)
+                Foxx_swnet_idf(n) = c4 * Foxx_swnet(n)
+             else
+                if (export_swnet_by_bands) then
+                   if (import_swpen_by_bands) then
+                      ! use each individual band for swpen coming from the sea-ice
+                      Foxx_swnet_vdr(n) = Faxa_swvdr(n)*(1.0_R8-albvis_dir)*ofracr_scaled + Fioi_swpen_vdr(n)*ifrac_scaled
+                      Foxx_swnet_vdf(n) = Faxa_swvdf(n)*(1.0_R8-albvis_dif)*ofracr_scaled + Fioi_swpen_vdf(n)*ifrac_scaled
+                      Foxx_swnet_idr(n) = Faxa_swndr(n)*(1.0_R8-albnir_dir)*ofracr_scaled + Fioi_swpen_idr(n)*ifrac_scaled
+                      Foxx_swnet_idf(n) = Faxa_swndf(n)*(1.0_R8-albnir_dif)*ofracr_scaled + Fioi_swpen_idf(n)*ifrac_scaled
+                   else
+                      ! scale total Foxx_swnet to get contributions from each band
+                      c1 = 0.285
+                      c2 = 0.285
+                      c3 = 0.215
+                      c4 = 0.215
+                      Foxx_swnet_vdr(n) = c1 * Foxx_swnet(n)
+                      Foxx_swnet_vdf(n) = c2 * Foxx_swnet(n)
+                      Foxx_swnet_idr(n) = c3 * Foxx_swnet(n)
+                      Foxx_swnet_idf(n) = c4 * Foxx_swnet(n)
+                   end if
                 end if
              end if
+             
           end if  ! if sea-ice is present
        end do
 
@@ -574,13 +586,10 @@ contains
 
     ! Carry out fast accumulation for the ocean
 
-    use ESMF                  , only : ESMF_GridComp, ESMF_Clock, ESMF_Time
-    use ESMF                  , only : ESMF_LogWrite, ESMF_LOGMSG_INFO, ESMF_SUCCESS
-    use ESMF                  , only : ESMF_GridCompGet, ESMF_ClockGet, ESMF_TimeGet, ESMF_ClockPrint
-    use ESMF                  , only : ESMF_FieldBundleGet
-    use med_internalstate_mod , only : InternalState, mastertask
-    use esmFlds               , only : compocn
-    use perf_mod              , only : t_startf, t_stopf
+    use ESMF , only : ESMF_GridComp, ESMF_Clock, ESMF_Time
+    use ESMF , only : ESMF_LogWrite, ESMF_LOGMSG_INFO, ESMF_SUCCESS
+    use ESMF , only : ESMF_GridCompGet, ESMF_ClockGet, ESMF_TimeGet, ESMF_ClockPrint
+    use ESMF , only : ESMF_FieldBundleGet
 
     ! input/output variables
     type(ESMF_GridComp)  :: gcomp
@@ -651,13 +660,9 @@ contains
 
     ! Prepare the OCN import Fields.
 
-    use ESMF                  , only : ESMF_GridComp, ESMF_Clock, ESMF_Time
-    use ESMF                  , only : ESMF_LogWrite, ESMF_LOGMSG_INFO, ESMF_SUCCESS
-    use ESMF                  , only : ESMF_FieldBundleGet
-    use med_constants_mod     , only : czero=>med_constants_czero
-    use med_internalstate_mod , only : InternalState
-    use esmFlds               , only : compocn
-    use perf_mod              , only : t_startf, t_stopf
+    use ESMF , only : ESMF_GridComp, ESMF_Clock, ESMF_Time
+    use ESMF , only : ESMF_LogWrite, ESMF_LOGMSG_INFO, ESMF_SUCCESS
+    use ESMF , only : ESMF_FieldBundleGet
 
     ! input/output variables
     type(ESMF_GridComp)  :: gcomp

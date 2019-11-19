@@ -4,6 +4,24 @@ module med_phases_prep_ice_mod
   ! Mediator phases for preparing ice export from mediator
   !-----------------------------------------------------------------------------
 
+  use med_kind_mod          , only : CX=>SHR_KIND_CX, CS=>SHR_KIND_CS, CL=>SHR_KIND_CL, R8=>SHR_KIND_R8
+  use med_utils_mod         , only : chkerr            => med_utils_ChkErr
+  use med_methods_mod       , only : fldchk            => med_methods_FB_FldChk
+  use med_methods_mod       , only : FB_GetFldPtr      => med_methods_FB_GetFldPtr
+  use med_methods_mod       , only : FB_diagnose       => med_methods_FB_diagnose
+  use med_methods_mod       , only : FB_FieldRegrid    => med_methods_FB_FieldRegrid
+  use med_methods_mod       , only : FB_getNumFlds     => med_methods_FB_getNumFlds
+  use med_methods_mod       , only : State_GetScalar   => med_methods_State_GetScalar
+  use med_methods_mod       , only : State_SetScalar   => med_methods_State_SetScalar
+  use med_constants_mod     , only : dbug_flag => med_constants_dbug_flag
+  use med_merge_mod         , only : med_merge_auto
+  use med_map_mod           , only : med_map_FB_Regrid_Norm
+  use med_internalstate_mod , only : InternalState, logunit, mastertask
+  use esmFlds               , only : compatm, compice, comprof, compglc, ncomps, compname
+  use esmFlds               , only : fldListFr, fldListTo
+  use esmFlds               , only : mapbilnr
+  use perf_mod              , only : t_startf, t_stopf
+
   implicit none
   private
 
@@ -17,29 +35,13 @@ contains
 
   subroutine med_phases_prep_ice(gcomp, rc)
 
-    use ESMF                  , only : operator(/=)
-    use ESMF                  , only : ESMF_GridComp, ESMF_GridCompGet, ESMF_StateGet 
-    use ESMF                  , only : ESMF_LogWrite, ESMF_LOGMSG_INFO, ESMF_SUCCESS
-    use ESMF                  , only : ESMF_FieldBundleGet, ESMF_RouteHandleIsCreated
-    use ESMF                  , only : ESMF_LOGMSG_ERROR, ESMF_FAILURE
-    use ESMF                  , only : ESMF_StateItem_Flag, ESMF_STATEITEM_NOTFOUND
-    use NUOPC                 , only : NUOPC_IsConnected
-    use esmFlds               , only : compatm, compice, comprof, compglc, ncomps, compname
-    use esmFlds               , only : fldListFr, fldListTo
-    use esmFlds               , only : mapbilnr
-    use shr_nuopc_utils_mod   , only : chkerr            => shr_nuopc_utils_ChkErr
-    use shr_nuopc_methods_mod , only : fldchk            => shr_nuopc_methods_FB_FldChk
-    use shr_nuopc_methods_mod , only : FB_GetFldPtr      => shr_nuopc_methods_FB_GetFldPtr
-    use shr_nuopc_methods_mod , only : FB_diagnose       => shr_nuopc_methods_FB_diagnose
-    use shr_nuopc_methods_mod , only : FB_FieldRegrid    => shr_nuopc_methods_FB_FieldRegrid
-    use shr_nuopc_methods_mod , only : FB_getNumFlds     => shr_nuopc_methods_FB_getNumFlds
-    use shr_nuopc_methods_mod , only : State_GetScalar   => shr_nuopc_methods_State_GetScalar
-    use shr_nuopc_methods_mod , only : State_SetScalar   => shr_nuopc_methods_State_SetScalar
-    use med_constants_mod     , only : CS, R8, dbug_flag => med_constants_dbug_flag
-    use med_merge_mod         , only : med_merge_auto
-    use med_map_mod           , only : med_map_FB_Regrid_Norm
-    use med_internalstate_mod , only : InternalState, logunit, mastertask
-    use perf_mod              , only : t_startf, t_stopf
+    use ESMF  , only : operator(/=)
+    use ESMF  , only : ESMF_GridComp, ESMF_GridCompGet, ESMF_StateGet 
+    use ESMF  , only : ESMF_LogWrite, ESMF_LOGMSG_INFO, ESMF_SUCCESS
+    use ESMF  , only : ESMF_FieldBundleGet, ESMF_RouteHandleIsCreated
+    use ESMF  , only : ESMF_LOGMSG_ERROR, ESMF_FAILURE
+    use ESMF  , only : ESMF_StateItem_Flag, ESMF_STATEITEM_NOTFOUND
+    use NUOPC , only : NUOPC_IsConnected
 
     ! input/output variables
     type(ESMF_GridComp)  :: gcomp
@@ -98,13 +100,13 @@ contains
        do n1 = 1,ncomps
           if (is_local%wrap%med_coupling_active(n1,compice)) then
              call med_map_FB_Regrid_Norm( &
-                  fldListFr(n1)%flds, n1, compice, &
-                  is_local%wrap%FBImp(n1,n1), &
-                  is_local%wrap%FBImp(n1,compice), &
-                  is_local%wrap%FBFrac(n1), &
-                  is_local%wrap%FBFrac(compice), &
-                  is_local%wrap%FBNormOne(n1,compice,:), &
-                  is_local%wrap%RH(n1,compice,:), &
+                  fldsSrc=fldListFr(n1)%flds, &
+                  srccomp=n1, destcomp=compice, &
+                  FBSrc=is_local%wrap%FBImp(n1,n1), &
+                  FBDst=is_local%wrap%FBImp(n1,compice), &
+                  FBFracSrc=is_local%wrap%FBFrac(n1), &
+                  FBNormOne=is_local%wrap%FBNormOne(n1,compice,:), &
+                  RouteHandles=is_local%wrap%RH(n1,compice,:), &
                   string=trim(compname(n1))//'2'//trim(compname(compice)), rc=rc)
              if (chkerr(rc,__LINE__,u_FILE_u)) return
           end if

@@ -1,5 +1,6 @@
-module shr_nuopc_time_mod
+module med_time_mod
 
+  use med_kind_mod        , only : CX=>SHR_KIND_CX, CS=>SHR_KIND_CS, CL=>SHR_KIND_CL, R8=>SHR_KIND_R8
   use ESMF                , only : ESMF_GridComp, ESMF_GridCompGet, ESMF_GridCompSet
   use ESMF                , only : ESMF_Clock, ESMF_ClockCreate, ESMF_ClockGet, ESMF_ClockSet
   use ESMF                , only : ESMF_ClockAdvance
@@ -16,17 +17,17 @@ module shr_nuopc_time_mod
   use ESMF                , only : operator(<=), operator(>), operator(==)
   use NUOPC               , only : NUOPC_CompAttributeGet
   use med_constants_mod   , only : dbug_flag => med_constants_dbug_flag
-  use shr_nuopc_utils_mod , only : chkerr => shr_nuopc_utils_ChkErr
+  use med_utils_mod       , only : chkerr => med_utils_ChkErr
 
   implicit none
   private    ! default private
 
-  public  :: shr_nuopc_time_clockInit  ! initialize driver clock (assumes default calendar)
-  public  :: shr_nuopc_time_alarmInit  ! initialize an alarm
-  public  :: shr_nuopc_time_set_component_stop_alarm
+  public  :: med_time_clockInit  ! initialize driver clock (assumes default calendar)
+  public  :: med_time_alarmInit  ! initialize an alarm
+  public  :: med_time_set_component_stop_alarm
 
-  private :: shr_nuopc_time_timeInit
-  private :: shr_nuopc_time_date2ymd
+  private :: med_time_timeInit
+  private :: med_time_date2ymd
 
   ! Clock and alarm options
   character(len=*), private, parameter :: &
@@ -61,10 +62,7 @@ module shr_nuopc_time_mod
 contains
 !===============================================================================
 
-  subroutine shr_nuopc_time_clockInit(ensemble_driver, esmdriver, logunit, rc)
-
-    use med_constants_mod     , only : CL, CS
-    use shr_cal_mod           , only : shr_cal_noleap, shr_cal_gregorian, shr_cal_calendarname
+  subroutine med_time_clockInit(ensemble_driver, esmdriver, logunit, rc)
 
     ! input/output variables
     type(ESMF_GridComp)  :: ensemble_driver, esmdriver
@@ -117,7 +115,7 @@ contains
     character(CS)           :: inst_suffix
     integer                 :: tmp(6)              ! Array for Broadcast
     logical                 :: isPresent
-    character(len=*), parameter :: subname = '(shr_nuopc_time_clockInit): '
+    character(len=*), parameter :: subname = '(med_time_clockInit): '
     !-------------------------------------------------------------------------------
 
     rc = ESMF_SUCCESS
@@ -210,7 +208,7 @@ contains
           endif
        endif
        if (mastertask) then
-          call shr_nuopc_time_read_restart(restart_file, &
+          call med_time_read_restart(restart_file, &
                start_ymd, start_tod, ref_ymd, ref_tod, curr_ymd, curr_tod, rc)
           if (ChkErr(rc,__LINE__,u_FILE_u)) return
        endif
@@ -241,7 +239,7 @@ contains
 
     ! Determine start time (THE FOLLOWING ASSUMES THAT THE DEFAULT CALENDAR IS SET in the driver)
 
-    call shr_nuopc_time_date2ymd(start_ymd, yr, mon, day)
+    call med_time_date2ymd(start_ymd, yr, mon, day)
     call ESMF_TimeSet( StartTime, yy=yr, mm=mon, dd=day, s=start_tod, rc=rc)
     if (ChkErr(rc,__LINE__,u_FILE_u)) return
     if(mastertask .or. dbug_flag > 2) then
@@ -254,7 +252,7 @@ contains
     endif
 
     ! Determine reference time
-    call shr_nuopc_time_date2ymd(ref_ymd, yr, mon, day)
+    call med_time_date2ymd(ref_ymd, yr, mon, day)
     call ESMF_TimeSet( RefTime, yy=yr, mm=mon, dd=day, s=ref_tod, rc=rc)
     if (ChkErr(rc,__LINE__,u_FILE_u)) return
 
@@ -267,7 +265,7 @@ contains
        write(logunit,*)   trim(subname)//': driver ref_tod: '// trim(tmpstr)
     endif
     ! Determine current time
-    call shr_nuopc_time_date2ymd(curr_ymd, yr, mon, day)
+    call med_time_date2ymd(curr_ymd, yr, mon, day)
     call ESMF_TimeSet( CurrTime, yy=yr, mm=mon, dd=day, s=curr_tod, rc=rc)
     if (ChkErr(rc,__LINE__,u_FILE_u)) return
     if(mastertask .or. dbug_flag > 2) then
@@ -386,7 +384,7 @@ contains
        call ESMF_LogWrite(trim(subname)//': driver stop_tod: '// trim(tmpstr), ESMF_LOGMSG_INFO)
        write(logunit,*)   trim(subname)//': driver stop_tod: '// trim(tmpstr)
     endif
-    call shr_nuopc_time_alarmInit(clock, &
+    call med_time_alarmInit(clock, &
          alarm   = alarm_stop,           &
          option  = stop_option,          &
          opt_n   = stop_n,               &
@@ -396,7 +394,7 @@ contains
          alarmname = 'alarm_stop', rc=rc)
        if (ChkErr(rc,__LINE__,u_FILE_u)) return
 
-    call shr_nuopc_time_alarmInit(clock, &
+    call med_time_alarmInit(clock, &
          alarm     = alarm_datestop,     &
          option    = optDate,            &
          opt_ymd   = stop_ymd,           &
@@ -429,23 +427,31 @@ contains
 
 
 
- end subroutine shr_nuopc_time_clockInit
+ end subroutine med_time_clockInit
 
- subroutine shr_nuopc_time_set_component_stop_alarm(gcomp, rc)
-   use ESMF, only : ESMF_GridComp, ESMF_Alarm, ESMF_Clock, ESMF_ClockGet
-   use ESMF, only : ESMF_AlarmSet
-   use NUOPC, only : NUOPC_CompAttributeGet
-   use NUOPC_Model, only : NUOPC_ModelGet
-   type(ESMF_gridcomp) :: gcomp
+!===============================================================================
 
-   character(len=256)       :: stop_option    ! Stop option units
-   integer                  :: stop_n         ! Number until stop interval
-   integer                  :: stop_ymd       ! Stop date (YYYYMMDD)
-   type(ESMF_ALARM)         :: stop_alarm
-   character(len=256)       :: cvalue
-   type(ESMF_Clock)         :: mclock
-   type(ESMF_Time)          :: mCurrTime
-   integer                  :: rc
+ subroutine med_time_set_component_stop_alarm(gcomp, rc)
+
+   use ESMF        , only : ESMF_GridComp, ESMF_Alarm, ESMF_Clock, ESMF_ClockGet
+   use ESMF        , only : ESMF_AlarmSet
+   use NUOPC       , only : NUOPC_CompAttributeGet
+   use NUOPC_Model , only : NUOPC_ModelGet
+
+    ! input/output variables
+   type(ESMF_gridcomp)  :: gcomp
+   integer, intent(out) :: rc
+
+   ! local variables
+   character(len=256) :: stop_option    ! Stop option units
+   integer            :: stop_n         ! Number until stop interval
+   integer            :: stop_ymd       ! Stop date (YYYYMMDD)
+   type(ESMF_ALARM)   :: stop_alarm
+   character(len=256) :: cvalue
+   type(ESMF_Clock)   :: mclock
+   type(ESMF_Time)    :: mCurrTime
+    !-----------------------------------------------------------
+
    !----------------
    ! Stop alarm
    !----------------
@@ -465,7 +471,7 @@ contains
    call NUOPC_CompAttributeGet(gcomp, name="stop_ymd", value=cvalue, rc=rc)
    if (ChkErr(rc,__LINE__,u_FILE_u)) return
    read(cvalue,*) stop_ymd
-   call shr_nuopc_time_alarmInit(mclock, stop_alarm, stop_option, &
+   call med_time_alarmInit(mclock, stop_alarm, stop_option, &
         opt_n   = stop_n,           &
         opt_ymd = stop_ymd,         &
         RefTime = mcurrTime,           &
@@ -474,11 +480,11 @@ contains
 
    call ESMF_AlarmSet(stop_alarm, clock=mclock, rc=rc)
    if (ChkErr(rc,__LINE__,u_FILE_u)) return
- end subroutine shr_nuopc_time_set_component_stop_alarm
+ end subroutine med_time_set_component_stop_alarm
 
 !===============================================================================
 
-  subroutine shr_nuopc_time_alarmInit( clock, alarm, option, &
+  subroutine med_time_alarmInit( clock, alarm, option, &
        opt_n, opt_ymd, opt_tod, RefTime, alarmname, rc)
 
     ! !DESCRIPTION: Setup an alarm in a clock
@@ -514,7 +520,7 @@ contains
     type(ESMF_Time)         :: NextAlarm        ! Next restart alarm time
     type(ESMF_TimeInterval) :: AlarmInterval    ! Alarm interval
     integer                 :: sec
-    character(len=*), parameter :: subname = '(shr_nuopc_time_alarmInit): '
+    character(len=*), parameter :: subname = '(med_time_alarmInit): '
     !-------------------------------------------------------------------------------
 
     rc = ESMF_SUCCESS
@@ -572,7 +578,7 @@ contains
        end if
        call ESMF_TimeIntervalSet(AlarmInterval, yy=9999, rc=rc)
        if (ChkErr(rc,__LINE__,u_FILE_u)) return
-       call shr_nuopc_time_timeInit(NextAlarm, lymd, cal, tod=ltod, desc="optDate")
+       call med_time_timeInit(NextAlarm, lymd, cal, tod=ltod, desc="optDate")
        if (ChkErr(rc,__LINE__,u_FILE_u)) return
        update_nextalarm  = .false.
 
@@ -860,11 +866,11 @@ contains
          ringInterval=AlarmInterval, rc=rc)
     if (ChkErr(rc,__LINE__,u_FILE_u)) return
 
-  end subroutine shr_nuopc_time_alarmInit
+  end subroutine med_time_alarmInit
 
   !===============================================================================
 
-  subroutine shr_nuopc_time_timeInit( Time, ymd, cal, tod, desc, logunit )
+  subroutine med_time_timeInit( Time, ymd, cal, tod, desc, logunit )
 
     !  Create the ESMF_Time object corresponding to the given input time, given in
     !  YMD (Year Month Day) and TOD (Time-of-day) format.
@@ -883,7 +889,7 @@ contains
     integer                     :: ltod         ! local tod
     character(len=256)          :: ldesc        ! local desc
     integer                     :: rc           ! return code
-    character(len=*), parameter :: subname = '(shr_nuopc_time_m_ETimeInit) '
+    character(len=*), parameter :: subname = '(med_time_m_ETimeInit) '
     !-------------------------------------------------------------------------------
 
     ltod = 0
@@ -901,16 +907,16 @@ contains
        return
     end if
 
-    call shr_nuopc_time_date2ymd (ymd,yr,mon,day)
+    call med_time_date2ymd (ymd,yr,mon,day)
 
     call ESMF_TimeSet( Time, yy=yr, mm=mon, dd=day, s=ltod, calendar=cal, rc=rc )
     if (ChkErr(rc,__LINE__,u_FILE_u)) return
 
-  end subroutine shr_nuopc_time_timeInit
+  end subroutine med_time_timeInit
 
   !===============================================================================
 
-  subroutine shr_nuopc_time_date2ymd (date, year, month, day)
+  subroutine med_time_date2ymd (date, year, month, day)
 
     ! input/output variables
     integer, intent(in)  :: date             ! coded-date (yyyymmdd)
@@ -918,7 +924,7 @@ contains
 
     ! local variables
     integer :: tdate   ! temporary date
-    character(*),parameter :: subName = "(shr_nuopc_time_date2ymd)"
+    character(*),parameter :: subName = "(med_time_date2ymd)"
     !-------------------------------------------------------------------------------
 
     tdate = abs(date)
@@ -929,17 +935,16 @@ contains
     month = int( mod(tdate,10000)/  100)
     day = mod(tdate,  100)
 
-  end subroutine shr_nuopc_time_date2ymd
+  end subroutine med_time_date2ymd
 
   !===============================================================================
 
-  subroutine shr_nuopc_time_read_restart(restart_file, &
+  subroutine med_time_read_restart(restart_file, &
        start_ymd, start_tod, ref_ymd, ref_tod, curr_ymd, curr_tod, rc)
 
-    use netcdf                , only : nf90_open, nf90_nowrite, nf90_noerr
-    use netcdf                , only : nf90_inq_varid, nf90_get_var, nf90_close
-    use ESMF                  , only : ESMF_LogWrite, ESMF_LOGMSG_INFO
-    use med_constants_mod     , only : CL
+    use netcdf , only : nf90_open, nf90_nowrite, nf90_noerr
+    use netcdf , only : nf90_inq_varid, nf90_get_var, nf90_close
+    use ESMF   , only : ESMF_LogWrite, ESMF_LOGMSG_INFO
 
     ! input/output variables
     character(len=*), intent(in) :: restart_file
@@ -954,7 +959,7 @@ contains
     ! local variables
     integer                 :: status, ncid, varid ! netcdf stuff
     character(CL)           :: tmpstr              ! temporary
-    character(len=*), parameter :: subname = "(shr_nuopc_time_read_restart)"
+    character(len=*), parameter :: subname = "(med_time_read_restart)"
     !----------------------------------------------------------------
 
     ! use netcdf here since it's serial
@@ -1057,6 +1062,6 @@ contains
     write(tmpstr,*) trim(subname)//" read curr_tod  = ",curr_tod
     call ESMF_LogWrite(trim(tmpstr), ESMF_LOGMSG_INFO)
 
-  end subroutine shr_nuopc_time_read_restart
+  end subroutine med_time_read_restart
 
-end module shr_nuopc_time_mod
+end module med_time_mod

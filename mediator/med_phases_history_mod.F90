@@ -4,12 +4,28 @@ module med_phases_history_mod
   ! Mediator Phases
   !-----------------------------------------------------------------------------
 
-  use ESMF              , only : ESMF_Alarm
-  use med_constants_mod , only : R8, CL, CS, I8
+  use med_kind_mod          , only : CX=>SHR_KIND_CX, CS=>SHR_KIND_CS, CL=>SHR_KIND_CL, R8=>SHR_KIND_R8
+  use ESMF                  , only : ESMF_Alarm
+  use med_constants_mod     , only : dbug_flag       => med_constants_dbug_flag
+  use med_constants_mod     , only : SecPerDay       => med_constants_SecPerDay
+  use med_utils_mod         , only : chkerr          => med_utils_ChkErr
+  use med_time_mod          , only : alarmInit       => med_time_alarmInit
+  use med_methods_mod       , only : FB_reset        => med_methods_FB_reset
+  use med_methods_mod       , only : FB_diagnose     => med_methods_FB_diagnose
+  use med_methods_mod       , only : FB_GetFldPtr    => med_methods_FB_GetFldPtr
+  use med_methods_mod       , only : FB_accum        => med_methods_FB_accum
+  use med_methods_mod       , only : State_GetScalar => med_methods_State_GetScalar
+  use med_map_mod           , only : med_map_FB_Regrid_Norm
+  use med_internalstate_mod , only : InternalState, mastertask
+  use med_io_mod            , only : med_io_write, med_io_wopen, med_io_enddef
+  use med_io_mod            , only : med_io_close, med_io_date2yyyymmdd, med_io_sec2hms
+  use med_io_mod            , only : med_io_ymd2date
+  use perf_mod              , only : t_startf, t_stopf
 
   implicit none
   private
 
+  public :: med_phases_history_alarm_init
   public :: med_phases_history_write
 
   type(ESMF_Alarm)        :: AlarmHist
@@ -20,6 +36,97 @@ module med_phases_history_mod
 !===============================================================================
 contains
 !===============================================================================
+
+  subroutine med_phases_history_alarm_init(gcomp, rc)
+
+    ! Initialize mediator history file alarm
+
+    use ESMF  , only : ESMF_GridComp, ESMF_GridCompGet
+    use ESMF  , only : ESMF_Clock, ESMF_ClockGet
+    use ESMF  , only : ESMF_Calendar
+    use ESMF  , only : ESMF_Time, ESMF_TimeGet
+    use ESMF  , only : ESMF_TimeInterval, ESMF_TimeIntervalGet
+    use ESMF  , only : ESMF_LogWrite, ESMF_LOGMSG_INFO, ESMF_LOGMSG_ERROR
+    use ESMF  , only : ESMF_SUCCESS, ESMF_FAILURE
+    use ESMF  , only : operator(==), operator(-)
+    use ESMF  , only : ESMF_AlarmIsCreated
+    use NUOPC , only : NUOPC_CompAttributeGet
+
+    ! input/output variables
+    type(ESMF_GridComp)  :: gcomp
+    integer, intent(out) :: rc
+
+    ! local variables
+    type(ESMF_Clock)        :: clock
+    type(ESMF_Time)         :: currtime
+    type(ESMF_Time)         :: reftime
+    type(ESMF_Time)         :: starttime
+    type(ESMF_Time)         :: nexttime
+    type(ESMF_Calendar)     :: calendar       ! calendar type
+    character(len=64)       :: currtimestr
+    character(CS)           :: histavg_option ! Histavg option units
+    integer                 :: yr,mon,day,sec ! time units
+    character(CL)           :: cvalue         ! attribute string
+    character(CL)           :: freq_option    ! freq_option setting (ndays, nsteps, etc)
+    integer                 :: freq_n         ! freq_n setting relative to freq_option
+    integer                 :: dbrc
+    integer                 :: iam
+    character(len=*), parameter :: subname='(med_phases_history_alarm_init)'
+    !---------------------------------------
+
+    if (dbug_flag > 5) then
+       call ESMF_LogWrite(trim(subname)//": called", ESMF_LOGMSG_INFO, rc=dbrc)
+    endif
+    rc = ESMF_SUCCESS
+
+    !---------------------------------------
+    ! --- Get the communicator and localpet
+    !---------------------------------------
+
+    call ESMF_GridCompGet(gcomp, rc=rc)
+    if (ChkErr(rc,__LINE__,u_FILE_u)) return
+
+    !---------------------------------------
+    ! --- Get the clock info
+    !---------------------------------------
+
+    call ESMF_GridCompGet(gcomp, clock=clock, rc=rc)
+    if (ChkErr(rc,__LINE__,u_FILE_u)) return
+
+    call ESMF_ClockGet(clock, currtime=currtime, reftime=reftime, starttime=starttime, calendar=calendar, rc=rc)
+    if (ChkErr(rc,__LINE__,u_FILE_u)) return
+
+    call ESMF_TimeGet(currtime,yy=yr, mm=mon, dd=day, s=sec, rc=dbrc)
+    if (ChkErr(rc,__LINE__,u_FILE_u)) return
+    write(currtimestr,'(i4.4,a,i2.2,a,i2.2,a,i5.5)') yr,'-',mon,'-',day,'-',sec
+    if (dbug_flag > 1) then
+       call ESMF_LogWrite(trim(subname)//": currtime = "//trim(currtimestr), ESMF_LOGMSG_INFO, rc=dbrc)
+    endif
+
+    !---------------------------------------
+    ! --- History Alarms
+    !---------------------------------------
+
+    if (.not. ESMF_AlarmIsCreated(AlarmHist, rc=rc)) then
+       ! Set instantaneous history output alarm
+       call NUOPC_CompAttributeGet(gcomp, name='history_option', value=cvalue, rc=rc)
+       if (ChkErr(rc,__LINE__,u_FILE_u)) return
+       freq_option = cvalue
+
+       call NUOPC_CompAttributeGet(gcomp, name='history_n', value=cvalue, rc=rc)
+       if (ChkErr(rc,__LINE__,u_FILE_u)) return
+       read(cvalue,*) freq_n
+
+       call ESMF_LogWrite(trim(subname)//" init history alarm with option, n = "//&
+            trim(freq_option)//","//trim(cvalue), ESMF_LOGMSG_INFO, rc=dbrc)
+
+       call alarmInit(clock, AlarmHist, option=freq_option, opt_n=freq_n, &
+            RefTime=RefTime, alarmname='history', rc=rc)
+    endif
+
+  end subroutine med_phases_history_alarm_init
+
+  !===============================================================================
 
   subroutine med_phases_history_write(gcomp, rc)
 
@@ -39,21 +146,6 @@ contains
     use NUOPC                 , only : NUOPC_CompAttributeGet
     use esmFlds               , only : compatm, complnd, compocn, compice, comprof, compglc, ncomps, compname
     use esmFlds               , only : fldListFr, fldListTo
-    use shr_nuopc_utils_mod   , only : chkerr          => shr_nuopc_utils_ChkErr
-    use shr_nuopc_methods_mod , only : FB_reset        => shr_nuopc_methods_FB_reset
-    use shr_nuopc_methods_mod , only : FB_diagnose     => shr_nuopc_methods_FB_diagnose
-    use shr_nuopc_methods_mod , only : FB_GetFldPtr    => shr_nuopc_methods_FB_GetFldPtr
-    use shr_nuopc_methods_mod , only : FB_accum        => shr_nuopc_methods_FB_accum
-    use shr_nuopc_methods_mod , only : State_GetScalar => shr_nuopc_methods_State_GetScalar
-    use shr_nuopc_time_mod    , only : alarmInit       => shr_nuopc_time_alarmInit
-    use med_constants_mod     , only : dbug_flag       => med_constants_dbug_flag
-    use med_constants_mod     , only : SecPerDay       => med_constants_SecPerDay
-    use med_map_mod           , only : med_map_FB_Regrid_Norm
-    use med_internalstate_mod , only : InternalState, mastertask
-    use med_io_mod            , only : med_io_write, med_io_wopen, med_io_enddef
-    use med_io_mod            , only : med_io_close, med_io_date2yyyymmdd, med_io_sec2hms
-    use med_io_mod            , only : med_io_ymd2date
-    use perf_mod              , only : t_startf, t_stopf
 
     ! input/output variables
     type(ESMF_GridComp)  :: gcomp
@@ -173,23 +265,6 @@ contains
     ! --- History Alarms
     !---------------------------------------
 
-    if (.not. ESMF_AlarmIsCreated(AlarmHist, rc=rc)) then
-       ! Set instantaneous history output alarm
-       call NUOPC_CompAttributeGet(gcomp, name='history_option', value=cvalue, rc=rc)
-       if (ChkErr(rc,__LINE__,u_FILE_u)) return
-       freq_option = cvalue
-
-       call NUOPC_CompAttributeGet(gcomp, name='history_n', value=cvalue, rc=rc)
-       if (ChkErr(rc,__LINE__,u_FILE_u)) return
-       read(cvalue,*) freq_n
-
-       call ESMF_LogWrite(trim(subname)//" init history alarm with option, n = "//&
-            trim(freq_option)//","//trim(cvalue), ESMF_LOGMSG_INFO, rc=dbrc)
-
-       call alarmInit(clock, AlarmHist, option=freq_option, opt_n=freq_n, &
-            RefTime=RefTime, alarmname='history', rc=rc)
-    endif
-
     if (ESMF_AlarmIsRinging(AlarmHist, rc=rc)) then
        if (ChkErr(rc,__LINE__,u_FILE_u)) return
        alarmIsOn = .true.
@@ -279,9 +354,39 @@ contains
                        nx=nx, ny=ny, nt=1, whead=whead, wdata=wdata, pre=trim(compname(n))//'Exp', rc=rc)
                    if (ChkErr(rc,__LINE__,u_FILE_u)) return
                 endif
+                if (ESMF_FieldBundleIsCreated(is_local%wrap%FBFrac(n),rc=rc)) then
+                   nx = is_local%wrap%nx(n)
+                   ny = is_local%wrap%ny(n)
+                   call med_io_write(hist_file, iam, is_local%wrap%FBFrac(n), &
+                       nx=nx, ny=ny, nt=1, whead=whead, wdata=wdata, pre='Med_frac_'//trim(compname(n)), rc=rc)
+                   if (ChkErr(rc,__LINE__,u_FILE_u)) return
+                end if
              endif
           enddo
-
+          if (ESMF_FieldBundleIsCreated(is_local%wrap%FBMed_ocnalb_o,rc=rc)) then
+             nx = is_local%wrap%nx(compocn)
+             ny = is_local%wrap%ny(compocn)
+             call med_io_write(hist_file, iam, is_local%wrap%FBMed_ocnalb_o, &
+                  nx=nx, ny=ny, nt=1, whead=whead, wdata=wdata, pre='Med_alb_ocn', rc=rc)
+          end if
+          if (ESMF_FieldBundleIsCreated(is_local%wrap%FBMed_aoflux_o,rc=rc)) then
+             nx = is_local%wrap%nx(compocn)
+             ny = is_local%wrap%ny(compocn)
+             call med_io_write(hist_file, iam, is_local%wrap%FBMed_aoflux_o, &
+                  nx=nx, ny=ny, nt=1, whead=whead, wdata=wdata, pre='Med_aoflux_ocn', rc=rc)
+          end if
+          if (ESMF_FieldBundleIsCreated(is_local%wrap%FBMed_ocnalb_a,rc=rc)) then
+             nx = is_local%wrap%nx(compatm)
+             ny = is_local%wrap%ny(compatm)
+             call med_io_write(hist_file, iam, is_local%wrap%FBMed_ocnalb_a, &
+                  nx=nx, ny=ny, nt=1, whead=whead, wdata=wdata, pre='Med_alb_atm', rc=rc)
+          end if
+          if (ESMF_FieldBundleIsCreated(is_local%wrap%FBMed_aoflux_a,rc=rc)) then
+             nx = is_local%wrap%nx(compatm)
+             ny = is_local%wrap%ny(compatm)
+             call med_io_write(hist_file, iam, is_local%wrap%FBMed_aoflux_a, &
+                  nx=nx, ny=ny, nt=1, whead=whead, wdata=wdata, pre='Med_aoflux_atm', rc=rc)
+          end if
        enddo
 
        call med_io_close(hist_file, iam, rc=rc)

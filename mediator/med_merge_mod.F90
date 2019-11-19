@@ -4,18 +4,23 @@ module med_merge_mod
   ! Performs merges from source field bundles to destination field bundle
   !-----------------------------------------------------------------------------
 
-  use med_constants_mod     , only : R8
+  use med_kind_mod          , only : CX=>SHR_KIND_CX, CS=>SHR_KIND_CS, CL=>SHR_KIND_CL, R8=>SHR_KIND_R8
+  use med_internalstate_mod , only : logunit
   use med_constants_mod     , only : dbug_flag         => med_constants_dbug_flag
   use med_constants_mod     , only : spval_init        => med_constants_spval_init
   use med_constants_mod     , only : spval             => med_constants_spval
   use med_constants_mod     , only : czero             => med_constants_czero
-  use shr_nuopc_utils_mod   , only : ChkErr            => shr_nuopc_utils_ChkErr
-  use shr_nuopc_methods_mod , only : FB_FldChk         => shr_nuopc_methods_FB_FldChk
-  use shr_nuopc_methods_mod , only : FB_GetNameN       => shr_nuopc_methods_FB_GetNameN
-  use shr_nuopc_methods_mod , only : FB_Reset          => shr_nuopc_methods_FB_reset
-  use shr_nuopc_methods_mod , only : FB_GetFldPtr      => shr_nuopc_methods_FB_GetFldPtr
-  use shr_nuopc_methods_mod , only : FieldPtr_Compare  => shr_nuopc_methods_FieldPtr_Compare
-  use med_internalstate_mod , only : logunit
+  use med_utils_mod         , only : ChkErr            => med_utils_ChkErr
+  use med_methods_mod       , only : FB_FldChk         => med_methods_FB_FldChk
+  use med_methods_mod       , only : FB_GetNameN       => med_methods_FB_GetNameN
+  use med_methods_mod       , only : FB_Reset          => med_methods_FB_reset
+  use med_methods_mod       , only : FB_GetFldPtr      => med_methods_FB_GetFldPtr
+  use med_methods_mod       , only : FieldPtr_Compare  => med_methods_FieldPtr_Compare
+  use esmFlds               , only : compmed, compname
+  use esmFlds               , only : med_fldList_type
+  use esmFlds               , only : med_fldList_GetNumFlds
+  use esmFlds               , only : med_fldList_GetFldInfo
+  use perf_mod              , only : t_startf, t_stopf
 
   implicit none
   private
@@ -39,16 +44,10 @@ contains
 
   subroutine med_merge_auto(compout_name, FBOut, FBfrac, FBImp, fldListTo, FBMed1, FBMed2, rc)
 
-    use ESMF                  , only : ESMF_FieldBundle
-    use ESMF                  , only : ESMF_FieldBundleIsCreated, ESMF_FieldBundleGet
-    use ESMF                  , only : ESMF_SUCCESS, ESMF_FAILURE, ESMF_LogWrite, ESMF_LogMsg_Info
-    use ESMF                  , only : ESMF_LogSetError, ESMF_RC_OBJ_NOT_CREATED
-    use med_constants_mod     , only : CL, CX, CS
-    use esmFlds               , only : compmed, compname
-    use esmFlds               , only : shr_nuopc_fldList_type
-    use esmFlds               , only : shr_nuopc_fldList_GetNumFlds
-    use esmFlds               , only : shr_nuopc_fldList_GetFldInfo
-    use perf_mod              , only : t_startf, t_stopf
+    use ESMF , only : ESMF_FieldBundle
+    use ESMF , only : ESMF_FieldBundleIsCreated, ESMF_FieldBundleGet
+    use ESMF , only : ESMF_SUCCESS, ESMF_FAILURE, ESMF_LogWrite, ESMF_LogMsg_Info
+    use ESMF , only : ESMF_LogSetError, ESMF_RC_OBJ_NOT_CREATED
 
     ! ----------------------------------------------
     ! Auto merge based on fldListTo info
@@ -59,7 +58,7 @@ contains
     type(ESMF_FieldBundle)       , intent(inout)         :: FBOut        ! Merged output field bundle
     type(ESMF_FieldBundle)       , intent(inout)         :: FBfrac       ! Fraction data for FBOut
     type(ESMF_FieldBundle)       , intent(in)            :: FBImp(:)     ! Array of field bundles each mapping to the FBOut mesh
-    type(shr_nuopc_fldList_type) , intent(in)            :: fldListTo    ! Information for merging
+    type(med_fldList_type) , intent(in)            :: fldListTo    ! Information for merging
     type(ESMF_FieldBundle)       , intent(in) , optional :: FBMed1       ! mediator field bundle
     type(ESMF_FieldBundle)       , intent(in) , optional :: FBMed2       ! mediator field bundle
     integer                      , intent(out)           :: rc
@@ -97,10 +96,10 @@ contains
        if (ChkErr(rc,__LINE__,u_FILE_u)) return
 
        ! Loop over the field in fldListTo
-       do nf = 1,shr_nuopc_fldList_GetNumFlds(fldListTo)
+       do nf = 1,med_fldList_GetNumFlds(fldListTo)
 
           ! Determine if if there is a match of the fldList field name with the FBOut field name
-          call shr_nuopc_fldList_GetFldInfo(fldListTo, nf, stdname)
+          call med_fldList_GetFldInfo(fldListTo, nf, stdname)
 
           if (trim(stdname) == trim(fldname)) then
 
@@ -109,7 +108,7 @@ contains
              do compsrc = 1,size(FBImp)
 
                 ! Determine the merge information for the import field
-                call shr_nuopc_fldList_GetFldInfo(fldListTo, nf, compsrc, merge_fields, merge_type, merge_fracname)
+                call med_fldList_GetFldInfo(fldListTo, nf, compsrc, merge_fields, merge_type, merge_fracname)
 
                 ! If merge_field is a colon delimited string then cycle through every field - otherwise by default nm
                 ! will only equal 1
@@ -174,10 +173,10 @@ contains
                          end if
 
                       else if (ESMF_FieldBundleIsCreated(FBImp(compsrc), rc=rc)) then
-
                          if (FB_FldChk(FBImp(compsrc), trim(merge_field), rc=rc)) then
                             call med_merge_auto_field(trim(merge_type), &
-                                 FBOut, fldname, FB=FBImp(compsrc), FBFld=merge_field, FBw=FBfrac, fldw=trim(merge_fracname), rc=rc)
+                                 FBOut, fldname, FB=FBImp(compsrc), FBFld=merge_field, &
+                                 FBw=FBfrac, fldw=trim(merge_fracname), rc=rc)
                             if (ChkErr(rc,__LINE__,u_FILE_u)) return
                          end if
 
@@ -203,10 +202,10 @@ contains
 
   subroutine med_merge_auto_field(merge_type, FBout, FBoutfld, FB, FBfld, FBw, fldw, rc)
 
-    use ESMF                  , only : ESMF_SUCCESS, ESMF_FAILURE, ESMF_LogMsg_Error
-    use ESMF                  , only : ESMF_LogWrite, ESMF_LogMsg_Info
-    use ESMF                  , only : ESMF_FieldBundle, ESMF_FieldBundleGet
-    use ESMF                  , only : ESMF_FieldGet, ESMF_Field
+    use ESMF , only : ESMF_SUCCESS, ESMF_FAILURE, ESMF_LogMsg_Error
+    use ESMF , only : ESMF_LogWrite, ESMF_LogMsg_Info
+    use ESMF , only : ESMF_FieldBundle, ESMF_FieldBundleGet
+    use ESMF , only : ESMF_FieldGet, ESMF_Field
 
     ! input/output variables
     character(len=*)      ,intent(in)    :: merge_type
@@ -229,6 +228,7 @@ contains
     integer           :: ungriddedUBound_input(1)  ! currently the size must equal 1 for rank 2 fieldds
     integer           :: gridToFieldMap_output(1)  ! currently the size must equal 1 for rank 2 fieldds
     integer           :: gridToFieldMap_input(1)   ! currently the size must equal 1 for rank 2 fieldds
+    character(len=CL) :: errmsg
     character(len=*),parameter :: subname=' (med_merge_mod: med_merge)'
     !---------------------------------------
 
@@ -290,16 +290,22 @@ contains
     end if
 
     ! error checks
-    if (ungriddedUBound_output(1) /= ungriddedUBound_input(1)) then
-       call ESMF_LogWrite(trim(subname)//"ungriddedUBound_input not equal to ungriddedUBound_output", ESMF_LOGMSG_INFO)
-       rc = ESMF_FAILURE
-       return
-    else if (gridToFieldMap_input(1) /= gridToFieldMap_output(1)) then
-       call ESMF_LOGWrite(trim(subname)//"gridToFieldMap_input not equal to gridToFieldMap_output", ESMF_LOGMSG_INFO)
-       rc = ESMF_FAILURE
-       return
-    end if
+    if (lrank == 2) then
+       if (ungriddedUBound_output(1) /= ungriddedUBound_input(1)) then
+          write(errmsg,*) trim(subname),"ungriddedUBound_input (",ungriddedUBound_input(1),&
+               ") not equal to ungriddedUBound_output (",ungriddedUBound_output(1),")"
+          call ESMF_LogWrite(errmsg, ESMF_LOGMSG_ERROR)
+          rc = ESMF_FAILURE
+          return
+       else if (gridToFieldMap_input(1) /= gridToFieldMap_output(1)) then
+          write(errmsg,*) trim(subname),"gridtofieldmap_input (",gridtofieldmap_input(1),&
+               ") not equal to gridtofieldmap_output (",gridtofieldmap_output(1),")"
+          call ESMF_LogWrite(errmsg, ESMF_LOGMSG_ERROR)
 
+          rc = ESMF_FAILURE
+          return
+       end if
+    endif
     ! Get pointer to weights that weights are only rank 1
     if (merge_type == 'copy_with_weights' .or. merge_type == 'merge' .or. merge_type == 'sum_with_weights') then
        call ESMF_FieldBundleGet(FBw, fieldName=trim(fldw), field=lfield, rc=rc)
@@ -753,7 +759,7 @@ contains
 
     ! Get name of k-th field in colon deliminted list
 
-    use ESMF, only : ESMF_SUCCESS, ESMF_FAILURE, ESMF_LogWrite, ESMF_LOGMSG_INFO 
+    use ESMF, only : ESMF_SUCCESS, ESMF_FAILURE, ESMF_LogWrite, ESMF_LOGMSG_INFO
 
     ! input/output variables
     character(len=*)  ,intent(in)  :: list    ! list/string

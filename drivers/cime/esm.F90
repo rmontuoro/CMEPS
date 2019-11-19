@@ -6,8 +6,8 @@ module ESM
 
   use ESMF                  , only : ESMF_Clock
   use shr_kind_mod          , only : r8=>shr_kind_r8, cl=>shr_kind_cl, cs=>shr_kind_cs
-  use shr_nuopc_utils_mod   , only : chkerr => shr_nuopc_utils_ChkErr
-  use shr_nuopc_utils_mod   , only : shr_nuopc_memcheck
+  use med_utils_mod         , only : chkerr => med_utils_ChkErr
+  use med_utils_mod         , only : med_memcheck
   use med_internalstate_mod , only : logunit, loglevel, mastertask, med_id
 
   implicit none
@@ -116,14 +116,12 @@ contains
     use NUOPC                 , only : NUOPC_CompAttributeAdd, NUOPC_CompAttributeSet
     use NUOPC_Driver          , only : NUOPC_DriverAddComp, NUOPC_DriverGetComp
 
-    use shr_nuopc_methods_mod , only : shr_nuopc_methods_Clock_TimePrint
     use shr_file_mod          , only : shr_file_setLogunit, shr_file_getunit
     use pio                   , only : pio_file_is_open, pio_closefile, file_desc_t
     use perf_mod              , only : t_initf
     use shr_mem_mod           , only : shr_mem_init
     use shr_file_mod          , only : shr_file_setLogunit, shr_file_getunit
     use shr_log_mod           , only : shrlogunit=> shr_log_unit
-    use shr_nuopc_methods_mod , only : shr_nuopc_methods_Clock_TimePrint
 
     ! input/output variables
     type(ESMF_GridComp)    :: driver
@@ -515,7 +513,6 @@ contains
     use NUOPC            , only : NUOPC_CompAttributeGet, NUOPC_CompAttributeSet, NUOPC_CompAttributeAdd
     use shr_orb_mod      , only : shr_orb_params, SHR_ORB_UNDEF_INT, SHR_ORB_UNDEF_REAL
     use shr_assert_mod   , only : shr_assert_in_domain
-    use shr_cal_mod      , only : shr_cal_date2ymd
     use shr_const_mod    , only : shr_const_tkfrz, shr_const_tktrip
     use shr_const_mod    , only : shr_const_mwwv, shr_const_mwdair
     use shr_frz_mod      , only : shr_frz_freezetemp_init
@@ -523,6 +520,7 @@ contains
     use shr_wv_sat_mod   , only : shr_wv_sat_set_default, shr_wv_sat_init
     use shr_wv_sat_mod   , only : shr_wv_sat_make_tables, ShrWVSatTableSpec
     use shr_wv_sat_mod   , only : shr_wv_sat_get_scheme_idx, shr_wv_sat_valid_idx
+    use glc_elevclass_mod, only : glc_elevclass_init
    !use shr_scam_mod     , only : shr_scam_checkSurface
 
     ! input/output variables
@@ -554,6 +552,7 @@ contains
     real(R8)                     :: orb_lambm0            ! Mean long of perihelion at vernal equinox (radians)
     real(R8)                     :: orb_mvelpp            ! moving vernal equinox long
     real(R8)                     :: wall_time_limit       ! wall time limit in hours
+    integer                      :: glc_nec               ! number of elevation classes in the land component for lnd->glc
     logical                      :: single_column         ! scm mode logical
     real(R8)                     :: scmlon                ! single column lon
     real(R8)                     :: scmlat                ! single column lat
@@ -580,7 +579,7 @@ contains
 
     rc = ESMF_SUCCESS
     call ESMF_LogWrite(trim(subname)//": called", ESMF_LOGMSG_INFO)
-    call shr_nuopc_memcheck(subname, 0, mastertask)
+    call med_memcheck(subname, 0, mastertask)
 
     !----------------------------------------------------------
     ! Initialize options for reproducible sums
@@ -738,6 +737,18 @@ contains
 
     ! TODO: need to update orbital parameters during run time - actually - each component needs to update its orbital
     ! parameters to be consistent
+
+    !----------------------------------------------------------
+    ! Initialize glc_elevclass_mod module variables
+    !----------------------------------------------------------
+
+    ! This must be called on all processors of the driver
+
+    call NUOPC_CompAttributeGet(driver, name='glc_nec', value=cvalue, rc=rc)
+    if (chkerr(rc,__LINE__,u_FILE_u)) return
+    read(cvalue,*) glc_nec
+
+    call glc_elevclass_init(glc_nec, logunit=logunit)
 
     !----------------------------------------------------------
     ! Initialize water vapor info
@@ -943,10 +954,25 @@ contains
     call NUOPC_CompAttributeAdd(gcomp, attrList=attrList, rc=rc)
     if (chkerr(rc,__LINE__,u_FILE_u)) return
     do n = 1,size(attrList)
-       call NUOPC_CompAttributeGet(driver, name=trim(attrList(n)), value=cvalue, rc=rc)
-       if (chkerr(rc,__LINE__,u_FILE_u)) return
-       call NUOPC_CompAttributeSet(gcomp, name=trim(attrList(n)), value=trim(cvalue), rc=rc)
-       if (chkerr(rc,__LINE__,u_FILE_u)) return
+       if (trim(attrList(n)) == "read_restart") then
+          call NUOPC_CompAttributeGet(driver, name="mediator_read_restart", value=cvalue, rc=rc)
+          if (chkerr(rc,__LINE__,u_FILE_u)) return
+          
+          read(cvalue,*) lvalue
+
+          if (.not. lvalue) then         
+            call NUOPC_CompAttributeGet(driver, name=trim(attrList(n)), value=cvalue, rc=rc)
+            if (chkerr(rc,__LINE__,u_FILE_u)) return
+          end if
+
+          call NUOPC_CompAttributeSet(gcomp, name=trim(attrList(n)), value=trim(cvalue), rc=rc)
+          if (chkerr(rc,__LINE__,u_FILE_u)) return
+       else 
+          call NUOPC_CompAttributeGet(driver, name=trim(attrList(n)), value=cvalue, rc=rc)
+          if (chkerr(rc,__LINE__,u_FILE_u)) return
+          call NUOPC_CompAttributeSet(gcomp, name=trim(attrList(n)), value=trim(cvalue), rc=rc)
+          if (chkerr(rc,__LINE__,u_FILE_u)) return
+       end if
     enddo
     deallocate(attrList)
 
@@ -1080,10 +1106,9 @@ contains
     use ESMF                  , only : ESMF_LogWrite, ESMF_SUCCESS, ESMF_LOGMSG_INFO, ESMF_Config
     use ESMF                  , only : ESMF_ConfigGetLen, ESMF_LogFoundAllocError, ESMF_ConfigGetAttribute
     use ESMF                  , only : ESMF_RC_NOT_VALID, ESMF_LogSetError
-    use ESMF                  , only : ESMF_GridCompIsPetLocal, ESMF_MethodAdd
+    use ESMF                  , only : ESMF_GridCompIsPetLocal, ESMF_MethodAdd, ESMF_UtilStringLowerCase
     use NUOPC                 , only : NUOPC_CompAttributeGet
     use NUOPC_Driver          , only : NUOPC_DriverAddComp
-    use shr_string_mod        , only : toLower => shr_string_toLower
     use med_constants_mod     , only : dbug_flag => med_constants_dbug_flag, CS, CL
     use mpi                   , only : MPI_COMM_NULL
     use mct_mod               , only : mct_world_init
@@ -1110,7 +1135,6 @@ contains
 #ifdef GLC_PRESENT
     use glc_comp_nuopc        , only : GLCSetServices => SetServices
 #endif
-
 
     ! input/output variables
     type(ESMF_GridComp)            :: driver
@@ -1185,7 +1209,7 @@ contains
     comms(1) = Global_Comm
     do i=1,componentCount
 
-       namestr = toLower(compLabels(i))
+       namestr = ESMF_UtilStringLowerCase(compLabels(i))
        if (namestr == 'med') namestr = 'cpl'
        call NUOPC_CompAttributeGet(driver, name=trim(namestr)//'_ntasks', value=cvalue, rc=rc)
        if (chkerr(rc,__LINE__,u_FILE_u)) return
