@@ -28,8 +28,7 @@ module MED
   use med_time_mod           , only : alarmInit          => med_time_alarmInit 
   use med_utils_mod          , only : memcheck           => med_memcheck
   use med_phases_history_mod , only : histAlarmInit      => med_phases_history_alarm_init
-  use med_internalstate_mod  , only : InternalState
-  use med_internalstate_mod  , only : med_coupling_allowed, logunit, mastertask
+  use med_internalstate_mod  , only : InternalState, logunit, mastertask, med_coupling_allowed
   use med_phases_profile_mod , only : med_phases_profile_finalize
   use esmFlds                , only : ncomps, compname
   use esmFlds                , only : fldListFr, fldListTo, med_fldList_Realize
@@ -497,7 +496,6 @@ contains
     use ESMF                  , only : ESMF_LogMsg_Info, ESMF_LogWrite
     use NUOPC                 , only : NUOPC_AddNamespace, NUOPC_Advertise
     use NUOPC                 , only : NUOPC_CompAttributeGet, NUOPC_CompAttributeSet, NUOPC_CompAttributeAdd
-    use med_internalstate_mod , only : InternalState, logunit, mastertask
     use esmFlds               , only : ncomps, compmed, compatm, compocn
     use esmFlds               , only : compice, complnd, comprof, compwav, compglc, compname
     use esmFlds               , only : fldListFr, fldListTo
@@ -1949,7 +1947,7 @@ contains
        ! Create component dimensions in mediator internal state
        !---------------------------------------
 
-       write(logunit,*)
+       if (mastertask) write(logunit,*)
        do n1 = 1,ncomps
           if (is_local%wrap%comp_present(n1) .and. ESMF_StateIsCreated(is_local%wrap%NStateImp(n1),rc=rc)) then
              call State_GetScalar(scalar_value=real_nx, &
@@ -1971,7 +1969,7 @@ contains
              call ESMF_LogWrite(trim(subname)//":"//trim(compname(n1))//":"//trim(msgString), ESMF_LOGMSG_INFO)
           end if
        end do
-       write(logunit,*)
+       if (mastertask) write(logunit,*)
 
        !---------------------------------------
        ! Initialize mediator IO
