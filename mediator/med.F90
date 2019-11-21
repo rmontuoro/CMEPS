@@ -16,16 +16,17 @@ module MED
   use med_methods_mod        , only : State_GeomWrite    => med_methods_State_GeomWrite
   use med_methods_mod        , only : State_reset        => med_methods_State_reset
   use med_methods_mod        , only : State_getNumFields => med_methods_State_getNumFields
-  use med_methods_mod        , only : State_GetScalar    => med_methods_State_GetScalar 
+  use med_methods_mod        , only : State_GetScalar    => med_methods_State_GetScalar
   use med_methods_mod        , only : FB_Init            => med_methods_FB_init
   use med_methods_mod        , only : FB_Init_pointer    => med_methods_FB_Init_pointer
   use med_methods_mod        , only : FB_Reset           => med_methods_FB_Reset
   use med_methods_mod        , only : FB_Copy            => med_methods_FB_Copy
   use med_methods_mod        , only : FB_FldChk          => med_methods_FB_FldChk
   use med_methods_mod        , only : FB_diagnose        => med_methods_FB_diagnose
+  use med_methods_mod        , only : FB_getFieldN       => med_methods_FB_getFieldN
   use med_methods_mod        , only : clock_timeprint    => med_methods_clock_timeprint
   use med_time_mod           , only : set_stop_alarm     => med_time_set_component_stop_alarm
-  use med_time_mod           , only : alarmInit          => med_time_alarmInit 
+  use med_time_mod           , only : alarmInit          => med_time_alarmInit
   use med_utils_mod          , only : memcheck           => med_memcheck
   use med_phases_history_mod , only : histAlarmInit      => med_phases_history_alarm_init
   use med_internalstate_mod  , only : InternalState, logunit, mastertask, med_coupling_allowed
@@ -1643,6 +1644,7 @@ contains
             is_local%wrap%FBExpAccumCnt(n1) = 0
 
             ! Create mesh info data
+            write(6,*)'DEBUG: calling med_meshinfo_create for ',trim(compname(n1))
             call med_meshinfo_create(is_local%wrap%FBImpAccum(n1,n1), is_local%wrap%mesh_info(n1), rc=rc)
             if (ChkErr(rc,__LINE__,u_FILE_u)) return
          endif
@@ -2182,8 +2184,8 @@ contains
 
   subroutine med_meshinfo_create(FB, mesh_info, rc)
 
-    use ESMF , only : ESMF_FieldBundle, ESMF_Array, ESMF_ArrayGet
-    use ESMF , only : ESMF_Field, ESMF_FieldGet, ESMF_FieldCreate, ESMF_FieldDestroy, ESMF_MeshGet
+    use ESMF , only : ESMF_Array, ESMF_ArrayCreate, ESMF_ArrayDestroy, ESMF_Field, ESMF_FieldGet
+    use ESMF , only : ESMF_DistGrid, ESMF_FieldBundle
     use ESMF , only : ESMF_Mesh, ESMF_MeshGet, ESMF_MESHLOC_ELEMENT, ESMF_TYPEKIND_R8
     use ESMF , only : ESMF_SUCCESS, ESMF_FAILURE, ESMF_LogWrite, ESMF_LOGMSG_INFO
     use med_internalstate_mod , only : mesh_info_type
@@ -2196,8 +2198,8 @@ contains
     ! local variables
     type(ESMF_Field)      :: lfield
     type(ESMF_Mesh)       :: lmesh
-    type(ESMF_Field)      :: elemAreaField
-    type(ESMF_Array)      :: elemAreaArray
+    type(ESMF_Array)      :: lArray
+    type(ESMF_DistGrid)   :: lDistGrid
     integer               :: numOwnedElements
     integer               :: spatialDim
     real(r8), allocatable :: ownedElemCoords(:)
@@ -2212,10 +2214,7 @@ contains
     if (chkerr(rc,__LINE__,u_FILE_u)) return
     call ESMF_FieldGet(lfield, mesh=lmesh, rc=rc)
     if (chkerr(rc,__LINE__,u_FILE_u)) return
-    call ESMF_MeshGet(lmesh, spatialDim=spatialDim, numOwnedElements=numOwnedElements, rc=rc)
-    if (chkerr(rc,__LINE__,u_FILE_u)) return
-    allocate(ownedElemCoords(spatialDim*numOwnedElements))
-    call ESMF_MeshGet(lmesh, ownedElemCoords=ownedElemCoords)
+    call ESMF_MeshGet(lmesh, spatialDim=spatialDim, numOwnedElements=numOwnedElements, elementDistGrid=lDistGrid, rc=rc)
     if (chkerr(rc,__LINE__,u_FILE_u)) return
 
     ! Allocate mesh_info data
@@ -2224,37 +2223,28 @@ contains
     allocate(mesh_info%lons(numOwnedElements))
 
     ! Obtain mesh longitudes and latitudes
+    allocate(ownedElemCoords(spatialDim*numOwnedElements))
+    call ESMF_MeshGet(lmesh, ownedElemCoords=ownedElemCoords)
+    if (chkerr(rc,__LINE__,u_FILE_u)) return
     do n = 1,numOwnedElements
        mesh_info%lons(n) = ownedElemCoords(2*n-1)
        mesh_info%lats(n) = ownedElemCoords(2*n)
     end do
-
-    ! Create an ESMF field object with the right distgrid that will be fill in with the ESMF_MeshGet query
-    ! for the mesh areas
-    elemAreaField = ESMF_FieldCreate(lmesh, ESMF_TYPEKIND_R8, meshloc=ESMF_MESHLOC_ELEMENT, rc=rc)
-    if (chkerr(rc,__LINE__,u_FILE_u)) return
-    call ESMF_FieldGet(elemAreaField, array=elemAreaArray, rc=rc)
-    if (chkerr(rc,__LINE__,u_FILE_u)) return
+    deallocate(ownedElemCoords)
 
     ! Obtain the mesh areas
-    call ESMF_MeshGet(lmesh, elemAreaArray=elemAreaArray, rc=rc)
+    allocate(dataptr(numOwnedElements))
+    lArray = ESMF_ArrayCreate(lDistGrid, dataptr, rc=rc)
     if (chkerr(rc,__LINE__,u_FILE_u)) return
-    call ESMF_ArrayGet(elemAreaArray, farrayptr=dataptr, rc=rc)
+    call ESMF_MeshGet(lmesh, elemAreaArray=lArray, rc=rc)
     if (chkerr(rc,__LINE__,u_FILE_u)) return
-
-    if (size(dataptr) /=  numOwnedElements) then
-       call ESMF_LogWrite(trim(subname)//": numOwnedElements and size of elemAreaArray do not match", &
-            ESMF_LOGMSG_INFO)
-       rc = ESMF_FAILURE
-       return
-    end if
     do n = 1,numOwnedElements
        mesh_info%areas(n) = dataptr(n)
     end do
+    call ESMF_ArrayDestroy(larray, rc=rc)
+    if (chkErr(rc,__LINE__,u_FILE_u)) return
+    deallocate(dataptr)
 
-    deallocate(ownedElemCoords)
-    call ESMF_FieldDestroy(elemAreaField, rc=rc)
-    if (chkerr(rc,__LINE__,u_FILE_u)) return
   end subroutine med_meshinfo_create
 
   !-----------------------------------------------------------------------------

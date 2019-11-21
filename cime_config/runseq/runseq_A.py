@@ -19,6 +19,7 @@ def runseq(case, coupling_times):
     comp_ocn  = case.get_value("COMP_OCN")
     comp_rof  = case.get_value("COMP_ROF")
     comp_wav  = case.get_value("COMP_WAV")
+    do_budgets = case.get_value("BUDGETS")
 
     atm_cpl_dt = coupling_times["atm_cpl_dt"]
     ocn_cpl_dt = coupling_times["ocn_cpl_dt"]
@@ -30,40 +31,50 @@ def runseq(case, coupling_times):
     if (comp_atm == 'datm' and comp_ocn == "docn" and comp_ice == 'dice' and
         comp_rof == 'drof' and comp_wav == 'swav' and comp_lnd == 'slnd'):
 
-        outfile.write ("runSeq::                               \n")
-        outfile.write ("@" + str(ocn_cpl_dt) + "               \n")
-        outfile.write ("  MED med_phases_prep_ocn_accum_avg    \n")
-        outfile.write ("  MED -> OCN :remapMethod=redist       \n")
+        outfile.write ("runSeq::                                \n")
+        outfile.write ("@" + str(ocn_cpl_dt) + "                \n")
+        outfile.write ("  MED med_phases_prep_ocn_accum_avg     \n")
+        outfile.write ("  MED -> OCN :remapMethod=redist        \n")
         if (atm_cpl_dt < ocn_cpl_dt):
-            outfile.write ("  @" + str(atm_cpl_dt) + "         \n")
-        outfile.write ("    MED med_phases_prep_ocn_map        \n")
-        outfile.write ("    MED med_phases_aofluxes_run        \n")
-        outfile.write ("    MED med_phases_prep_ocn_merge      \n")
-        outfile.write ("    MED med_phases_prep_ocn_accum_fast \n")
-        outfile.write ("    MED med_phases_ocnalb_run          \n")
-        outfile.write ("    MED med_phases_prep_ice            \n")
-        outfile.write ("    MED -> ICE :remapMethod=redist     \n")
-        outfile.write ("    MED med_phases_prep_rof_accum      \n")
-        outfile.write ("    MED med_phases_prep_rof_avg        \n")
-        outfile.write ("    MED -> ROF :remapMethod=redist     \n")
-        outfile.write ("    ICE                                \n")
-        outfile.write ("    ROF                                \n")
-        outfile.write ("    ICE -> MED :remapMethod=redist     \n")
-        outfile.write ("    MED med_fraction_set               \n")
-        outfile.write ("    ROF -> MED :remapMethod=redist     \n")
-        outfile.write ("    MED med_phases_prep_atm            \n")
-        outfile.write ("    MED -> ATM :remapMethod=redist     \n")
-        outfile.write ("    ATM                                \n")
-        outfile.write ("    ATM -> MED :remapMethod=redist     \n")
-        outfile.write ("    MED med_phases_history_write       \n")
-        outfile.write ("    MED med_phases_profile             \n")
+            outfile.write ("  @" + str(atm_cpl_dt) + "          \n")
+        outfile.write ("    MED med_phases_prep_ocn_map         \n")
+        outfile.write ("    MED med_phases_aofluxes_run         \n")
+        outfile.write ("    MED med_phases_prep_ocn_merge       \n")
+        outfile.write ("    MED med_phases_prep_ocn_accum_fast  \n")
+        outfile.write ("    MED med_phases_ocnalb_run           \n")
+        if do_budgets: 
+            outfile.write ("    MED med_phases_diag_ocn         \n") # budgets after prep_ocn
+        outfile.write ("    MED med_phases_prep_ice             \n")
+        outfile.write ("    MED -> ICE :remapMethod=redist      \n")
+        outfile.write ("    MED med_phases_prep_rof_accum       \n")
+        outfile.write ("    MED med_phases_prep_rof_avg         \n")
+        outfile.write ("    MED -> ROF :remapMethod=redist      \n")
+        outfile.write ("    ICE                                 \n")
+        outfile.write ("    ROF                                 \n")
+        outfile.write ("    ROF -> MED :remapMethod=redist      \n")
+        if do_budgets: 
+            outfile.write ("    MED med_phases_diag_ice_med2ice \n") # budgets with old fraction
+            outfile.write ("    MED med_phases_diag_rof         \n") # budgets with old fraction
+        outfile.write ("    ICE -> MED :remapMethod=redist      \n")
+        outfile.write ("    MED med_fraction_set                \n") # update fractions
+        outfile.write ("    MED med_phases_prep_atm             \n")
+        outfile.write ("    MED -> ATM :remapMethod=redist      \n")
+        outfile.write ("    ATM                                 \n")
+        outfile.write ("    ATM -> MED :remapMethod=redist      \n")
+        if do_budgets: 
+            outfile.write ("    MED med_phases_diag_ice_ice2med \n") # budgets with new fraction
+            outfile.write ("    MED med_phases_diag_atm         \n") # budgets with new fraction
+            outfile.write ("    MED med_phases_diag_accum       \n") # accumulate diags
+            outfile.write ("    MED med_phases_diag_print       \n") # print diags
+        outfile.write ("    MED med_phases_history_write        \n")
+        outfile.write ("    MED med_phases_profile              \n")
         if (atm_cpl_dt < ocn_cpl_dt):
-            outfile.write ("  @                                \n")
-        outfile.write ("  OCN                                  \n")
-        outfile.write ("  OCN -> MED :remapMethod=redist       \n")
-        outfile.write ("  MED med_phases_restart_write         \n")
-        outfile.write ("@                                      \n")
-        outfile.write ("::                                     \n")
+            outfile.write ("  @                                 \n")
+        outfile.write ("  OCN                                   \n")
+        outfile.write ("  OCN -> MED :remapMethod=redist        \n")
+        outfile.write ("  MED med_phases_restart_write          \n")
+        outfile.write ("@                                       \n")
+        outfile.write ("::                                      \n")
 
     elif (comp_atm == 'satm' and comp_ocn == "socn" and comp_ice == 'sice' and
           comp_rof == 'srof' and comp_wav == 'dwav' and comp_lnd == 'slnd'):
