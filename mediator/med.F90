@@ -1762,10 +1762,10 @@ contains
     ! out the fraction FB allocation and the fraction initialization
     !----------------------------------------------------------
 
-    call med_fraction_init(gcomp,rc=rc)
-    if (ChkErr(rc,__LINE__,u_FILE_u)) return
-    call med_fraction_set(gcomp,rc=rc)
-    if (ChkErr(rc,__LINE__,u_FILE_u)) return
+    !call med_fraction_init(gcomp,rc=rc)
+    !if (ChkErr(rc,__LINE__,u_FILE_u)) return
+    !call med_fraction_set(gcomp,rc=rc)
+    !if (ChkErr(rc,__LINE__,u_FILE_u)) return
 
     !---------------------------------------
     ! Carry out data dependency for atm initialization if needed
@@ -1776,6 +1776,11 @@ contains
 
     if (.not. atmDone .and. ocnDone .and. is_local%wrap%comp_present(compatm)) then
        atmDone = .true.  ! reset if an item is found that is not done
+
+    call med_fraction_init(gcomp,rc=rc)
+    if (ChkErr(rc,__LINE__,u_FILE_u)) return
+    call med_fraction_set(gcomp,rc=rc)
+    if (ChkErr(rc,__LINE__,u_FILE_u)) return
 
        call ESMF_StateGet(is_local%wrap%NStateImp(compatm), itemCount=fieldCount, rc=rc)
        if (ChkErr(rc,__LINE__,u_FILE_u)) return
