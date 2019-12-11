@@ -276,8 +276,10 @@ contains
        call ESMF_LogWrite(trim(subname)//': driver curr_tod: '// trim(tmpstr), ESMF_LOGMSG_INFO)
        write(logunit,*)   trim(subname)//': driver curr_tod: '// trim(tmpstr)
     endif
+
     !---------------------------------------------------------------------------
     ! Determine driver clock timestep
+    ! This is the minimum of all of the component coupling time steps
     !---------------------------------------------------------------------------
 
     call NUOPC_CompAttributeGet(esmdriver, name="atm_cpl_dt", value=cvalue, rc=rc)
