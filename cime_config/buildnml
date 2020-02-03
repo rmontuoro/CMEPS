@@ -48,13 +48,11 @@ def _create_drv_namelists(case, infile, confdir, nmlgen, files):
     config['atm_grid'] = case.get_value('ATM_GRID')
 
     # needed for determining the run sequence as well as glc_renormalize_smb
-    config['COMP_ATM'] = case.get_value("COMP_ATM")
-    config['COMP_ICE'] = case.get_value("COMP_ICE")
-    config['COMP_GLC'] = case.get_value("COMP_GLC")
-    config['COMP_LND'] = case.get_value("COMP_LND")
-    config['COMP_OCN'] = case.get_value("COMP_OCN")
-    config['COMP_ROF'] = case.get_value("COMP_ROF")
-    config['COMP_WAV'] = case.get_value("COMP_WAV")
+    for comp in case.get_values("COMP_CLASSES"):
+        compname = "COMP_"+comp
+        compval = case.get_value(compname)
+        if compval:
+            config[compname] = compval
 
     if ((case.get_value("COMP_ROF") == 'mosart' and case.get_value("MOSART_MODE") == 'NULL') or
         (case.get_value("COMP_ROF") == 'rtm' and case.get_value("RTM_MODE") == 'NULL') or
@@ -86,7 +84,9 @@ def _create_drv_namelists(case, infile, confdir, nmlgen, files):
         if case.get_value('CASE') == case.get_value('RUN_REFCASE'):
             nmlgen.set_value('brnch_retain_casename' , value='.true.')
 
-    # set aquaplanet if appropriate
+    #--------------------------------
+    # Overwrite aquaplanet if appropriate
+    #--------------------------------
     if config['COMP_OCN'] == 'docn' and 'aqua' in case.get_value("DOCN_MODE"):
         nmlgen.set_value('aqua_planet' , value='.true.')
 
@@ -138,7 +138,29 @@ def _create_drv_namelists(case, infile, confdir, nmlgen, files):
                .format(atmdt, mindt))
 
     #--------------------------------
-    # Overwrite: set start_ymd
+    # Set value for components_present string
+    # Set value for components_names string
+    #--------------------------------
+    components_present = ''
+    component_names = ''
+    for comp in case.get_values("COMP_CLASSES"):
+        if comp != 'CPL':
+            compname = "COMP_"+comp
+            if case.get_value(compname) is None:
+                skip_comp = True
+            elif case.get_value(compname).startswith('s'):
+                # TODO: remove this elif block the stub components for nuopc are removed
+                skip_comp = True
+            else: 
+                skip_comp = False
+            if not skip_comp:
+                components_present = components_present + ':' + comp.lower()
+                component_names = component_names + ':' + case.get_value(compname)
+    nmlgen.set_value('components_present', value=components_present)
+    nmlgen.set_value('component_names', value=component_names)
+
+    #--------------------------------
+    # Set value for start_ymd
     #--------------------------------
     run_startdate = "".join(str(x) for x in case.get_value('RUN_STARTDATE').split('-'))
     nmlgen.set_value('start_ymd', value=run_startdate)
@@ -220,16 +242,17 @@ def _create_drv_namelists(case, infile, confdir, nmlgen, files):
     comp_types = ['atm','lnd','ice','ocn','rof','glc','wav','esp']
     skip_comps = []
     for item in comp_types:
-        # stub comps
-        if case.get_value("COMP_" + item.upper()) == 's' + item:
+        compname = case.get_value("COMP_" + item.upper())
+        # stub comps 
+        if not compname or compname  == 's' + item:
             skip_comps.append(item.upper())
         # data comps
-        if case.get_value("COMP_" + item.upper()) == 'd' + item:
+        if compname == 'd' + item:
             if item != 'glc': #no glc data component
                 if case.get_value("D" + item.upper()) == 'NULL' or case.get_value("D" + item.upper()) == 'null':
                     skip_comps.append(item.upper)
         # xcpl_comps
-        if case.get_value("COMP_" + item.upper()) == 'x' + item:
+        if compname == 'x' + item:
             if item != 'esp': #no esp xcpl component
                 if case.get_value(item.upper() + "_NX") == "0" and case.get_value(item.upper() + "_NY") == "0":
                     skip_comps.append(item.upper)
@@ -362,6 +385,14 @@ def _create_component_modelio_namelists(confdir, case, files):
 
     nuopc_config_file = os.path.join(confdir, "nuopc.runconfig")
     for model in case.get_values("COMP_CLASSES"):
+        # only do this for components that are active (non-stub)
+        compname = "COMP_"+model
+        if case.get_value(compname) is None:
+            continue
+        elif case.get_value(compname).startswith('s'):
+            # TODO: remove this elif block the stub components for nuopc are removed
+            continue
+
         model = model.lower()
         with NamelistGenerator(case, definition_file) as nmlgen:
             config = {}
