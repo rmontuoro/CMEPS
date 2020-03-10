@@ -26,6 +26,15 @@
     <desc>Name of coupling component</desc>
   </entry>
 
+  <entry id="COUPLING_MODE">
+    <type>char</type>
+    <valid_values>cesm,nems_orig_active,nems_orig_data,nems_frac</valid_values>
+    <default_value>cesm</default_value>
+    <group>run_coupling</group>
+    <file>env_run.xml</file>
+    <desc>coupling mode</desc>
+  </entry>
+
   <!-- ===================================================================== -->
   <!-- master configuration file that specifies all relevant filenames and -->
   <!-- and directories to configure a case -->
@@ -2513,7 +2522,7 @@
    <valid_values>TRUE,FALSE</valid_values>
    <default_value>FALSE</default_value>
    <group>job_submission</group>
-   <file>env_batch.xml</file>
+   <file>env_workflow.xml</file>
    <desc>whether the PROJECT value is required on this machine</desc>
  </entry>
 

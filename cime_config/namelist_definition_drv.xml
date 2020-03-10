@@ -739,6 +739,18 @@
   <!-- MED general attributes                      -->
   <!-- =========================================== -->
 
+  <entry id="coupling_mode" modify_via_xml="COUPLING_MODE">
+    <type>char</type>
+    <category>control</category>
+    <group>MED_attributes</group>
+    <desc>
+      Type of coupling mode to use in the mediator
+    </desc>
+    <values>
+      <value>$COUPLING_MODE</value>
+    </values>
+  </entry>
+
   <entry id="components_present">
     <type>char</type>
     <category>control</category>
@@ -782,7 +794,7 @@
     </desc>
     <values>
       <value>on_if_glc_coupled_fluxes</value>
-      <value COMP_LND="xlnd">off</value> 
+      <value COMP_LND="xlnd">off</value>
     </values>
   </entry>
 
@@ -815,7 +827,7 @@
     <category>mapping</category>
     <group>ATM_attributes</group>
     <desc>
-      DOMAIN description of atm grid 
+      DOMAIN description of atm grid
     </desc>
     <values>
       <value>$ATM_DOMAIN_PATH/$ATM_DOMAIN_FILE</value>
@@ -839,7 +851,7 @@
     <category>mapping</category>
     <group>LND_attributes</group>
     <desc>
-      DOMAIN description of lnd grid 
+      DOMAIN description of lnd grid
     </desc>
     <values>
       <value>$LND_DOMAIN_PATH/$LND_DOMAIN_FILE</value>

@@ -4,6 +4,7 @@ module MED
   ! Mediator Component.
   !-----------------------------------------------------------------------------
 
+  use ESMF                   , only : ESMF_VMLogMemInfo
   use med_kind_mod           , only : CX=>SHR_KIND_CX, CS=>SHR_KIND_CS, CL=>SHR_KIND_CL, R8=>SHR_KIND_R8
   use med_constants_mod      , only : dbug_flag          => med_constants_dbug_flag
   use med_constants_mod      , only : spval_init         => med_constants_spval_init
@@ -16,7 +17,7 @@ module MED
   use med_methods_mod        , only : State_GeomWrite    => med_methods_State_GeomWrite
   use med_methods_mod        , only : State_reset        => med_methods_State_reset
   use med_methods_mod        , only : State_getNumFields => med_methods_State_getNumFields
-  use med_methods_mod        , only : State_GetScalar    => med_methods_State_GetScalar
+  use med_methods_mod        , only : State_GetScalar    => med_methods_State_GetScalar 
   use med_methods_mod        , only : FB_Init            => med_methods_FB_init
   use med_methods_mod        , only : FB_Init_pointer    => med_methods_FB_Init_pointer
   use med_methods_mod        , only : FB_Reset           => med_methods_FB_Reset
@@ -24,7 +25,7 @@ module MED
   use med_methods_mod        , only : FB_FldChk          => med_methods_FB_FldChk
   use med_methods_mod        , only : FB_diagnose        => med_methods_FB_diagnose
   use med_methods_mod        , only : clock_timeprint    => med_methods_clock_timeprint
-  use med_time_mod           , only : alarmInit          => med_time_alarmInit
+  use med_time_mod           , only : alarmInit          => med_time_alarmInit 
   use med_utils_mod          , only : memcheck           => med_memcheck
   use med_internalstate_mod  , only : InternalState
   use med_internalstate_mod  , only : med_coupling_allowed, logunit, mastertask
@@ -38,6 +39,9 @@ module MED
   use esmFlds                , only : med_fldList_GetFldNames
   use esmFlds                , only : med_fldList_Document_Mapping
   use esmFlds                , only : med_fldList_Document_Merging
+  use esmFlds                  , only : coupling_mode
+  use esmFldsExchange_nems_mod , only : esmFldsExchange_nems
+  use esmFldsExchange_cesm_mod , only : esmFldsExchange_cesm
 
   implicit none
   private
@@ -56,6 +60,7 @@ module MED
   character(len=*), parameter :: grid_arbopt = "grid_reg"   ! grid_reg or grid_arb
   character(len=*), parameter :: u_FILE_u  = &
        __FILE__
+  logical :: profile_memory = .true.
 
 !-----------------------------------------------------------------------------
 contains
@@ -95,8 +100,10 @@ contains
 
     type(ESMF_GridComp)  :: gcomp
     integer, intent(out) :: rc
+    character(len=*),parameter :: subname='(module_MED:SetServices)'
 
     rc = ESMF_SUCCESS
+    if (profile_memory) call ESMF_VMLogMemInfo("Entering "//trim(subname))
 
     !------------------
     ! the NUOPC model component mediator_routine_SS will register the generic methods
@@ -366,6 +373,8 @@ contains
          specRoutine=med_finalize, rc=rc)
     if (ChkErr(rc,__LINE__,u_FILE_u)) return
 
+    if (profile_memory) call ESMF_VMLogMemInfo("Leaving "//trim(subname))
+
   end subroutine SetServices
 
   !-----------------------------------------------------------------------------
@@ -392,6 +401,7 @@ contains
     !-----------------------------------------------------------
 
     rc = ESMF_SUCCESS
+    if (profile_memory) call ESMF_VMLogMemInfo("Entering "//trim(subname))
     call ESMF_GridCompGet(gcomp, vm=vm, rc=rc)
     if (ChkErr(rc,__LINE__,u_FILE_u)) return
     call ESMF_VMGet(vm, localPet=localPet, rc=rc)
@@ -402,7 +412,6 @@ contains
     call ESMF_AttributeGet(gcomp, name="Verbosity", value=value, defaultValue="max", &
          convention="NUOPC", purpose="Instance", rc=rc)
     if (ChkErr(rc,__LINE__,u_FILE_u)) return
-
     call ESMF_LogWrite(trim(subname)//": Mediator verbosity is "//trim(value), ESMF_LOGMSG_INFO)
 
     write(msgString,'(A,i6)') trim(subname)//' dbug_flag = ',dbug_flag
@@ -413,6 +422,7 @@ contains
     call NUOPC_CompFilterPhaseMap(gcomp, ESMF_METHOD_INITIALIZE, acceptStringList=(/"IPDv03p"/), rc=rc)
     if (ChkErr(rc,__LINE__,u_FILE_u)) return
 
+    if (profile_memory) call ESMF_VMLogMemInfo("Leaving "//trim(subname))
     call ESMF_LogWrite(trim(subname)//": done", ESMF_LOGMSG_INFO)
 
   end subroutine InitializeP0
@@ -434,7 +444,7 @@ contains
     use esmFlds               , only : fldListFr, fldListTo
     use esmFlds               , only : med_fldList_GetNumFlds
     use esmFlds               , only : med_fldList_GetFldInfo
-    use esmFldsExchange_mod   , only : esmFldsExchange
+    use esmFldsExchange_nems_mod, only : esmFldsExchange_nems
     use med_internalstate_mod , only : mastertask
 
     ! input/output variables
@@ -446,6 +456,7 @@ contains
     ! local variables
     character(len=CS)   :: stdname, shortname
     integer             :: n, n1, n2, ncomp, nflds
+    logical             :: isPresent, isSet
     character(len=CS)   :: transferOffer
     character(len=CS)   :: cvalue
     type(InternalState) :: is_local
@@ -456,6 +467,7 @@ contains
 
     call ESMF_LogWrite(trim(subname)//": called", ESMF_LOGMSG_INFO)
     rc = ESMF_SUCCESS
+    if (profile_memory) call ESMF_VMLogMemInfo("Entering "//trim(subname))
 
     !------------------
     ! Allocate memory for the internal state and set it in the Component.
@@ -511,8 +523,18 @@ contains
     ! Initialize mediator flds (should be identical to the list in esmDict_Init)
     !------------------
 
-    call esmFldsExchange(gcomp, phase='advertise', rc=rc)
-    if (ChkErr(rc,__LINE__,u_FILE_u)) return
+    call NUOPC_CompAttributeGet(gcomp, name='coupling_mode', value=coupling_mode, rc=rc)
+    if (chkerr(rc,__LINE__,u_FILE_u)) return
+    call ESMF_LogWrite('coupling_mode = '// trim(coupling_mode), ESMF_LOGMSG_INFO)
+    write(logunit,*)' Mediator Coupling Mode is ',trim(coupling_mode)
+
+    if (trim(coupling_mode) == 'cesm') then
+       call esmFldsExchange_cesm(gcomp, phase='advertise', rc=rc)
+       if (ChkErr(rc,__LINE__,u_FILE_u)) return
+    else if (trim(coupling_mode(1:4)) == 'nems') then
+       call esmFldsExchange_nems(gcomp, phase='advertise', rc=rc)
+       if (ChkErr(rc,__LINE__,u_FILE_u)) return
+    end if
 
     !------------------
     ! Determine component present status
@@ -558,13 +580,21 @@ contains
     if (ChkErr(rc,__LINE__,u_FILE_u)) return
     read(cvalue,*) is_local%wrap%flds_scalar_index_ny
 
-    call NUOPC_CompAttributeGet(gcomp, name="ScalarFieldIdxNextSwCday", value=cvalue, rc=rc)
+    call NUOPC_CompAttributeGet(gcomp, name="ScalarFieldIdxNextSwCday", value=cvalue, isPresent=isPresent, isSet=isSet, rc=rc)
     if (ChkErr(rc,__LINE__,u_FILE_u)) return
-    read(cvalue,*) is_local%wrap%flds_scalar_index_nextsw_cday
+    if (isPresent .and. isSet) then
+       read(cvalue,*) is_local%wrap%flds_scalar_index_nextsw_cday
+    else
+       is_local%wrap%flds_scalar_index_nextsw_cday = spval
+    end if
 
-    call NUOPC_CompAttributeGet(gcomp, name="ScalarFieldIdxPrecipFactor", value=cvalue, rc=rc)
+    call NUOPC_CompAttributeGet(gcomp, name="ScalarFieldIdxPrecipFactor", value=cvalue, isPresent=isPresent, isSet=isSet, rc=rc)
     if (ChkErr(rc,__LINE__,u_FILE_u)) return
-    read(cvalue,*) is_local%wrap%flds_scalar_index_precip_factor
+    if (isPresent .and. isSet) then
+       read(cvalue,*) is_local%wrap%flds_scalar_index_precip_factor
+    else
+       is_local%wrap%flds_scalar_index_precip_factor = spval
+    end if
 
     !------------------
     ! Advertise import/export mediator field names
@@ -605,6 +635,7 @@ contains
        end if
     end do ! end of ncomps loop
 
+    if (profile_memory) call ESMF_VMLogMemInfo("Leaving "//trim(subname))
     call ESMF_LogWrite(trim(subname)//": done", ESMF_LOGMSG_INFO)
 
   end subroutine InitializeIPDv03p1
@@ -634,6 +665,7 @@ contains
 
     call ESMF_LogWrite(trim(subname)//": called", ESMF_LOGMSG_INFO)
     rc = ESMF_SUCCESS
+    if (profile_memory) call ESMF_VMLogMemInfo("Entering "//trim(subname))
 
     ! Get the internal state from Component.
     nullify(is_local%wrap)
@@ -661,6 +693,7 @@ contains
       endif
     enddo
 
+    if (profile_memory) call ESMF_VMLogMemInfo("Leaving "//trim(subname))
     call ESMF_LogWrite(trim(subname)//": done", ESMF_LOGMSG_INFO)
 
   end subroutine InitializeIPDv03p3
@@ -689,6 +722,7 @@ contains
 
     call ESMF_LogWrite(trim(subname)//": called", ESMF_LOGMSG_INFO)
     rc = ESMF_SUCCESS
+    if (profile_memory) call ESMF_VMLogMemInfo("Entering "//trim(subname))
 
     ! Get the internal state from the mediator gridded component.
     nullify(is_local%wrap)
@@ -711,6 +745,7 @@ contains
        endif
        call ESMF_LogWrite(trim(subname)//": finished for component "//trim(compname(n1)), ESMF_LOGMSG_INFO)
     enddo
+    if (profile_memory) call ESMF_VMLogMemInfo("Leaving "//trim(subname))
     call ESMF_LogWrite(trim(subname)//": done", ESMF_LOGMSG_INFO)
 
   contains  !- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -766,6 +801,7 @@ contains
 
       call ESMF_LogWrite(trim(subname)//": called", ESMF_LOGMSG_INFO)
       rc = ESMF_Success
+      if (profile_memory) call ESMF_VMLogMemInfo("Entering "//trim(subname))
 
       call ESMF_StateGet(State, itemCount=fieldCount, rc=rc)
       if (ChkErr(rc,__LINE__,u_FILE_u)) return
@@ -1109,6 +1145,7 @@ contains
 
       deallocate(fieldNameList)
 
+      if (profile_memory) call ESMF_VMLogMemInfo("Leaving "//trim(subname))
       call ESMF_LogWrite(trim(subname)//": done", ESMF_LOGMSG_INFO)
 
     end subroutine realizeConnectedGrid
@@ -1140,6 +1177,7 @@ contains
     call ESMF_LogWrite(trim(subname)//": called", ESMF_LOGMSG_INFO)
 
     rc = ESMF_SUCCESS
+    if (profile_memory) call ESMF_VMLogMemInfo("Entering "//trim(subname))
 
     ! Get the internal state from Component.
     nullify(is_local%wrap)
@@ -1180,6 +1218,7 @@ contains
       endif
     enddo
 
+    if (profile_memory) call ESMF_VMLogMemInfo("Leaving "//trim(subname))
     call ESMF_LogWrite(trim(subname)//": done", ESMF_LOGMSG_INFO)
 
   contains  !- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -1211,11 +1250,13 @@ contains
       integer, allocatable        :: gridToFieldMap(:)
       integer, allocatable        :: ungriddedLBound(:), ungriddedUBound(:)
       logical                     :: isPresent
+      logical                     :: meshcreated
       character(len=*),parameter  :: subname='(module_MED:completeFieldInitialization)'
       !-----------------------------------------------------------
 
       call ESMF_LogWrite(trim(subname)//": called", ESMF_LOGMSG_INFO)
       rc = ESMF_Success
+      if (profile_memory) call ESMF_VMLogMemInfo("Entering "//trim(subname))
 
       call State_GetNumFields(State, fieldCount, rc=rc)
       if (ChkErr(rc,__LINE__,u_FILE_u)) return
@@ -1225,6 +1266,7 @@ contains
         call NUOPC_getStateMemberLists(State, fieldList=fieldList, rc=rc)
         if (ChkErr(rc,__LINE__,u_FILE_u)) return
 
+        meshcreated = .false.
         do n=1, fieldCount
 
           call ESMF_FieldGet(fieldList(n), status=fieldStatus, name=fieldName, &
@@ -1241,8 +1283,11 @@ contains
             if (ChkErr(rc,__LINE__,u_FILE_u)) return
 
             ! Convert grid to mesh
-            mesh = ESMF_GridToMeshCell(grid,rc=rc)
-            if (ChkErr(rc,__LINE__,u_FILE_u)) return
+            if (.not. meshcreated) then
+               mesh = ESMF_GridToMeshCell(grid,rc=rc)
+               if (ChkErr(rc,__LINE__,u_FILE_u)) return
+               meshcreated = .true.
+            end if
 
             meshField = ESMF_FieldCreate(mesh, typekind=ESMF_TYPEKIND_R8, &
                  meshloc=ESMF_MESHLOC_ELEMENT, name=fieldName, rc=rc)
@@ -1291,6 +1336,7 @@ contains
         deallocate(fieldList)
       endif
 
+      if (profile_memory) call ESMF_VMLogMemInfo("Leaving "//trim(subname))
       call ESMF_LogWrite(trim(subname)//": done", ESMF_LOGMSG_INFO)
 
     end subroutine completeFieldInitialization
@@ -1334,7 +1380,6 @@ contains
     use ESMF                    , only : ESMF_VM
     use NUOPC                   , only : NUOPC_CompAttributeSet, NUOPC_IsAtTime, NUOPC_SetAttribute
     use NUOPC                   , only : NUOPC_CompAttributeGet
-    use esmFldsExchange_mod     , only : esmFldsExchange
     use med_fraction_mod        , only : med_fraction_init, med_fraction_set
     use med_phases_restart_mod  , only : med_phases_restart_read
     use med_phases_prep_glc_mod , only : med_phases_prep_glc_init
@@ -1379,6 +1424,7 @@ contains
 
     call ESMF_LogWrite(trim(subname)//": called", ESMF_LOGMSG_INFO)
     rc = ESMF_SUCCESS
+    if (profile_memory) call ESMF_VMLogMemInfo("Entering "//trim(subname))
 
     call NUOPC_CompAttributeSet(gcomp, name="InitializeDataComplete", value="false", rc=rc)
     if (ChkErr(rc,__LINE__,u_FILE_u)) return
@@ -1623,8 +1669,10 @@ contains
       ! Determine mapping and merging info for field exchanges in mediator
       !---------------------------------------
 
-      call esmFldsExchange(gcomp, phase='initialize', rc=rc)
-      if (ChkErr(rc,__LINE__,u_FILE_u)) return
+      if (trim(coupling_mode) == 'cesm') then
+         call esmFldsExchange_cesm(gcomp, phase='initialize', rc=rc)
+         if (ChkErr(rc,__LINE__,u_FILE_u)) return
+      end if
 
       if (mastertask) then
          call med_fldList_Document_Mapping(logunit, is_local%wrap%med_coupling_active)
@@ -1871,6 +1919,7 @@ contains
        if (ChkErr(rc,__LINE__,u_FILE_u)) return
     end if
 
+    if (profile_memory) call ESMF_VMLogMemInfo("Leaving "//trim(subname))
     if (dbug_flag > 5) then
       call ESMF_LogWrite(trim(subname)//": done", ESMF_LOGMSG_INFO)
     endif
@@ -1903,16 +1952,10 @@ contains
     integer                 :: restart_n            ! Number until restart interval
     integer                 :: restart_ymd          ! Restart date (YYYYMMDD)
     type(ESMF_ALARM)        :: restart_alarm
-    type(ESMF_ALARM)        :: med_profile_alarm
     type(ESMF_ALARM)        :: glc_avg_alarm
     character(len=16)       :: glc_avg_period
-    character(len=256)      :: stop_option    ! Stop option units
-    integer                 :: stop_n         ! Number until stop interval
-    integer                 :: stop_ymd       ! Stop date (YYYYMMDD)
-    type(ESMF_ALARM)        :: stop_alarm
-    character(len=256)      :: option
-    integer                 :: opt_n
-    integer                 :: opt_ymd
+    integer                 :: opt_n            
+    integer                 :: opt_ymd          
     type(ESMF_ALARM)        :: alarm
     logical                 :: first_time = .true.
     character(len=*),parameter :: subname='(module_MED:SetRunClock)'
@@ -1954,37 +1997,11 @@ contains
     if (ChkErr(rc,__LINE__,u_FILE_u)) return
 
     !--------------------------------
-    ! set restart alarm,  med log summary alarm and glc averaging alarm if appropriate
+    ! set glc averaging alarm if appropriate
     !--------------------------------
 
     if (first_time) then
-
-       ! Set mediator restart alarm
-
-       call NUOPC_CompAttributeGet(gcomp, name="restart_option", value=restart_option, rc=rc)
-       if (ChkErr(rc,__LINE__,u_FILE_u)) return
-       call NUOPC_CompAttributeGet(gcomp, name="restart_n", value=cvalue, rc=rc)
-       if (ChkErr(rc,__LINE__,u_FILE_u)) return
-       read(cvalue,*) restart_n
-       call NUOPC_CompAttributeGet(gcomp, name="restart_ymd", value=cvalue, rc=rc)
-       if (ChkErr(rc,__LINE__,u_FILE_u)) return
-       read(cvalue,*) restart_ymd
-       call alarmInit(mediatorclock, restart_alarm, restart_option, opt_n=restart_n, opt_ymd=restart_ymd,  &
-            RefTime=currTime, alarmname = 'alarm_restart', rc=rc)
-       if (ChkErr(rc,__LINE__,u_FILE_u)) return
-       call ESMF_AlarmSet(restart_alarm, clock=mediatorclock, rc=rc)
-       if (ChkErr(rc,__LINE__,u_FILE_u)) return
-
-       ! Set mediator profile alarm - HARD CODED to daily
-
-       call alarmInit(mediatorclock, med_profile_alarm, 'ndays', &
-            opt_n = 1, alarmname = 'med_profile_alarm', rc=rc)
-       if (ChkErr(rc,__LINE__,u_FILE_u)) return
-       call ESMF_AlarmSet(med_profile_alarm, clock=mediatorclock, rc=rc)
-       if (ChkErr(rc,__LINE__,u_FILE_u)) return
-
        ! Set glc averaging alarm if appropriate
-
        if (is_local%wrap%comp_present(compglc)) then
           call NUOPC_CompAttributeGet(gcomp, name="glc_avg_period", value=glc_avg_period, rc=rc)
           if (ChkErr(rc,__LINE__,u_FILE_u)) return
@@ -2008,21 +2025,7 @@ contains
          if (ChkErr(rc,__LINE__,u_FILE_u)) return
       end if
 
-      ! Mediator stop alarm
-
-      call NUOPC_CompAttributeGet(gcomp, name="stop_option", value=stop_option, rc=rc)
-      if (ChkErr(rc,__LINE__,u_FILE_u)) return
-      call NUOPC_CompAttributeGet(gcomp, name="stop_n", value=cvalue, rc=rc)
-      if (ChkErr(rc,__LINE__,u_FILE_u)) return
-      read(cvalue,*) stop_n
-      call NUOPC_CompAttributeGet(gcomp, name="stop_ymd", value=cvalue, rc=rc)
-      if (ChkErr(rc,__LINE__,u_FILE_u)) return
-      read(cvalue,*) stop_ymd
-      call alarmInit(mediatorClock, stop_alarm, stop_option, opt_n=stop_n, opt_ymd=stop_ymd, &
-           RefTime = currTime,  alarmname = 'alarm_stop', rc=rc)
-      if (ChkErr(rc,__LINE__,u_FILE_u)) return
-
-       first_time = .false.
+      first_time = .false.
     end if
 
     !--------------------------------
@@ -2040,6 +2043,7 @@ contains
     endif
 
   end subroutine SetRunClock
+
   !-----------------------------------------------------------------------------
 
   subroutine med_finalize(gcomp, rc)
