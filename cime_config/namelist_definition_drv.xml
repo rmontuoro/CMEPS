@@ -4,6 +4,18 @@
 
 <entry_id version="2.0">
 
+  <entry id="component_list">
+    <type>char</type>
+    <category>nuopc</category>
+    <group>nuopc_var</group>
+    <desc>
+      Model components that are active
+    </desc>
+    <values>
+      <value>ATM OCN ICE LND ROF GLC WAV MED</value>
+    </values>
+  </entry>
+
   <!-- ======================================== -->
   <!--  DRIVER attributes                       -->
   <!-- ======================================== -->
@@ -291,18 +303,6 @@
     </values>
   </entry>
 
-  <entry id="component_list">
-    <type>char</type>
-    <category>nuopc</category>
-    <group>nuopc_var</group>
-    <desc>
-      Model components that are active
-    </desc>
-    <values>
-      <value>ATM OCN ICE LND ROF GLC WAV MED</value>
-    </values>
-  </entry>
-
   <!-- =========================================== -->
   <!-- DRIVER saturation vapor attributes          -->
   <!-- =========================================== -->
@@ -475,63 +475,6 @@
     <group>ALLCOMP_attributes</group>
     <values>
       <value cime_model="cesm">cesm</value>
-    </values>
-  </entry>
-  <entry id="ATM_model" modify_via_xml="COMP_ATM">
-    <type>char</type>
-    <category>nuopc</category>
-    <group>ALLCOMP_attributes</group>
-    <values>
-      <value>$COMP_ATM</value>
-    </values>
-  </entry>
-  <entry id="OCN_model" modify_via_xml="COMP_OCN">
-    <type>char</type>
-    <category>nuopc</category>
-    <group>ALLCOMP_attributes</group>
-    <values>
-      <value>$COMP_OCN</value>
-    </values>
-  </entry>
-  <entry id="ICE_model" modify_via_xml="COMP_ICE">
-    <type>char</type>
-    <category>nuopc</category>
-    <group>ALLCOMP_attributes</group>
-    <values>
-      <value>$COMP_ICE</value>
-    </values>
-  </entry>
-  <entry id="ROF_model" modify_via_xml="COMP_ROF">
-    <type>char</type>
-    <category>nuopc</category>
-    <group>ALLCOMP_attributes</group>
-    <values>
-      <value>$COMP_ROF</value>
-      <value ROF_MODE='null'>srof</value>
-    </values>
-  </entry>
-  <entry id="LND_model" modify_via_xml="COMP_LND">
-    <type>char</type>
-    <category>nuopc</category>
-    <group>ALLCOMP_attributes</group>
-    <values>
-      <value>$COMP_LND</value>
-    </values>
-  </entry>
-  <entry id="GLC_model" modify_via_xml="COMP_GLC">
-    <type>char</type>
-    <category>nuopc</category>
-    <group>ALLCOMP_attributes</group>
-    <values>
-      <value>$COMP_GLC</value>
-    </values>
-  </entry>
-  <entry id="WAV_model" modify_via_xml="COMP_WAV">
-    <type>char</type>
-    <category>nuopc</category>
-    <group>ALLCOMP_attributes</group>
-    <values>
-      <value>$COMP_WAV</value>
     </values>
   </entry>
 
@@ -808,6 +751,19 @@
     </values>
   </entry>
 
+  <entry id="components_present">
+    <type>char</type>
+    <category>control</category>
+    <group>MED_attributes</group>
+    <desc>
+      Model components that are present in a colon delimited string.
+      This is used by the mediator to create the present flags for the mediator components.
+    </desc>
+    <values>
+      <value>unset</value>
+    </values>
+  </entry>
+
   <entry id="glc_renormalize_smb">
     <type>char</type>
     <category>control</category>
@@ -838,7 +794,7 @@
     </desc>
     <values>
       <value>on_if_glc_coupled_fluxes</value>
-      <value COMP_LND="xlnd">off</value> 
+      <value COMP_LND="xlnd">off</value>
     </values>
   </entry>
 
@@ -871,7 +827,7 @@
     <category>mapping</category>
     <group>ATM_attributes</group>
     <desc>
-      DOMAIN description of atm grid 
+      DOMAIN description of atm grid
     </desc>
     <values>
       <value>$ATM_DOMAIN_PATH/$ATM_DOMAIN_FILE</value>
@@ -895,7 +851,7 @@
     <category>mapping</category>
     <group>LND_attributes</group>
     <desc>
-      DOMAIN description of lnd grid 
+      DOMAIN description of lnd grid
     </desc>
     <values>
       <value>$LND_DOMAIN_PATH/$LND_DOMAIN_FILE</value>
@@ -1554,6 +1510,18 @@
   <!-- =========================== -->
   <!-- FLDS attributes              -->
   <!-- =========================== -->
+
+  <entry id="component_names">
+    <type>char</type>
+    <category>expdef</category>
+    <group>ALLCOMP_attributes</group>
+    <desc>
+      active model component names  in a colon delimited string.
+    </desc>
+    <values>
+      <value>unset</value>
+    </values>
+  </entry>
 
   <entry id="ScalarFieldName">
     <type>char</type>
