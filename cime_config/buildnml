@@ -337,6 +337,8 @@ def _create_runseq(case, coupling_times):
             from runseq_TG import gen_runseq
         elif (comp_atm == 'ufsatm' and comp_ocn == "mom" and comp_ice == 'cice'):
             from runseq_NEMS import gen_runseq
+        elif (comp_atm == 'datm' and comp_ocn == "hycom"):
+            from runseq_HYCOM_data import gen_runseq
         else: 
             from runseq_general import gen_runseq
 
