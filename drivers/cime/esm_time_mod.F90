@@ -257,39 +257,93 @@ contains
     ! Determine driver clock timestep
     !---------------------------------------------------------------------------
 
-    call NUOPC_CompAttributeGet(esmdriver, name="atm_cpl_dt", value=cvalue, rc=rc)
-    if (ChkErr(rc,__LINE__,u_FILE_u)) return
-    read(cvalue,*) atm_cpl_dt
+    dtime_drv = huge(0)
 
-    call NUOPC_CompAttributeGet(esmdriver, name="lnd_cpl_dt", value=cvalue, rc=rc)
+    call NUOPC_CompAttributeGet(esmdriver, name="atm_cpl_dt", isPresent=isPresent, rc=rc)
     if (ChkErr(rc,__LINE__,u_FILE_u)) return
-    read(cvalue,*) lnd_cpl_dt
+    if (isPresent) then
+       call NUOPC_CompAttributeGet(esmdriver, name="atm_cpl_dt", value=cvalue, rc=rc)
+       if (ChkErr(rc,__LINE__,u_FILE_u)) return
+       read(cvalue,*) atm_cpl_dt
+       if (atm_cpl_dt < dtime_drv) then
+          dtime_drv = atm_cpl_dt
+       endif 
+    endif
 
-    call NUOPC_CompAttributeGet(esmdriver, name="ice_cpl_dt", value=cvalue, rc=rc)
+    call NUOPC_CompAttributeGet(esmdriver, name="lnd_cpl_dt", isPresent=isPresent, rc=rc)
     if (ChkErr(rc,__LINE__,u_FILE_u)) return
-    read(cvalue,*) ice_cpl_dt
+    if (isPresent) then
+       call NUOPC_CompAttributeGet(esmdriver, name="lnd_cpl_dt", value=cvalue, rc=rc)
+       if (ChkErr(rc,__LINE__,u_FILE_u)) return
+       read(cvalue,*) lnd_cpl_dt
+       if (lnd_cpl_dt < dtime_drv) then
+          dtime_drv = lnd_cpl_dt
+       endif 
+    endif
 
-    call NUOPC_CompAttributeGet(esmdriver, name="ocn_cpl_dt", value=cvalue, rc=rc)
+    call NUOPC_CompAttributeGet(esmdriver, name="ice_cpl_dt", isPresent=isPresent, rc=rc)
     if (ChkErr(rc,__LINE__,u_FILE_u)) return
-    read(cvalue,*) ocn_cpl_dt
+    if (isPresent) then
+       call NUOPC_CompAttributeGet(esmdriver, name="ice_cpl_dt", value=cvalue, rc=rc)
+       if (ChkErr(rc,__LINE__,u_FILE_u)) return
+       read(cvalue,*) ice_cpl_dt
+       if (ice_cpl_dt < dtime_drv) then
+          dtime_drv = ice_cpl_dt
+       endif 
+    endif
 
-    call NUOPC_CompAttributeGet(esmdriver, name="glc_cpl_dt", value=cvalue, rc=rc)
+    call NUOPC_CompAttributeGet(esmdriver, name="ocn_cpl_dt", isPresent=isPresent, rc=rc)
     if (ChkErr(rc,__LINE__,u_FILE_u)) return
-    read(cvalue,*) glc_cpl_dt
+    if (isPresent) then
+       call NUOPC_CompAttributeGet(esmdriver, name="ocn_cpl_dt", value=cvalue, rc=rc)
+       if (ChkErr(rc,__LINE__,u_FILE_u)) return
+       read(cvalue,*) ocn_cpl_dt
+       if (ocn_cpl_dt < dtime_drv) then
+          dtime_drv = ocn_cpl_dt
+       endif 
+    endif
 
-    call NUOPC_CompAttributeGet(esmdriver, name="rof_cpl_dt", value=cvalue, rc=rc)
+    call NUOPC_CompAttributeGet(esmdriver, name="glc_cpl_dt", isPresent=isPresent, rc=rc)
     if (ChkErr(rc,__LINE__,u_FILE_u)) return
-    read(cvalue,*) rof_cpl_dt
+    if (isPresent) then
+       call NUOPC_CompAttributeGet(esmdriver, name="glc_cpl_dt", value=cvalue, rc=rc)
+       if (ChkErr(rc,__LINE__,u_FILE_u)) return
+       read(cvalue,*) glc_cpl_dt
+       if (glc_cpl_dt < dtime_drv) then
+          dtime_drv = glc_cpl_dt
+       endif 
+    endif
 
-    call NUOPC_CompAttributeGet(esmdriver, name="wav_cpl_dt", value=cvalue, rc=rc)
+    call NUOPC_CompAttributeGet(esmdriver, name="rof_cpl_dt", isPresent=isPresent, rc=rc)
     if (ChkErr(rc,__LINE__,u_FILE_u)) return
-    read(cvalue,*) wav_cpl_dt
+    if (isPresent) then
+       call NUOPC_CompAttributeGet(esmdriver, name="rof_cpl_dt", value=cvalue, rc=rc)
+       if (ChkErr(rc,__LINE__,u_FILE_u)) return
+       read(cvalue,*) rof_cpl_dt
+       if (rof_cpl_dt < dtime_drv) then
+          dtime_drv = rof_cpl_dt
+       endif 
+    endif
 
-    call NUOPC_CompAttributeGet(esmdriver, name="glc_avg_period", value=glc_avg_period, rc=rc)
+    call NUOPC_CompAttributeGet(esmdriver, name="wav_cpl_dt", isPresent=isPresent, rc=rc)
     if (ChkErr(rc,__LINE__,u_FILE_u)) return
-    read(cvalue,*) glc_avg_period
+    if (isPresent) then
+       call NUOPC_CompAttributeGet(esmdriver, name="wav_cpl_dt", value=cvalue, rc=rc)
+       if (ChkErr(rc,__LINE__,u_FILE_u)) return
+       read(cvalue,*) wav_cpl_dt
+       if (wav_cpl_dt < dtime_drv) then
+          dtime_drv = wav_cpl_dt
+       endif 
+    endif
 
-    dtime_drv = minval((/atm_cpl_dt, lnd_cpl_dt, ocn_cpl_dt, ice_cpl_dt, glc_cpl_dt, rof_cpl_dt, wav_cpl_dt/))
+    call NUOPC_CompAttributeGet(esmdriver, name="glc_avg_period", isPresent=isPresent, rc=rc)
+    if (ChkErr(rc,__LINE__,u_FILE_u)) return
+    if (isPresent) then
+       call NUOPC_CompAttributeGet(esmdriver, name="glc_avg_period", value=glc_avg_period, rc=rc)
+       if (ChkErr(rc,__LINE__,u_FILE_u)) return
+       read(cvalue,*) glc_avg_period
+    endif
+
     if(mastertask) then
        write(tmpstr,'(i10)') dtime_drv
        call ESMF_LogWrite(trim(subname)//': driver time interval is : '// trim(tmpstr), ESMF_LOGMSG_INFO, rc=rc)
