@@ -9,13 +9,20 @@ class DriverConfig(dict):
         # this initializes the dictionary  
         super(DriverConfig,self).__init__() 
 
-        self['atm'] = self.__compute_atm(case, coupling_times)
-        self['glc'] = self.__compute_glc(case, coupling_times)
-        self['ice'] = self.__compute_ice(case, coupling_times)
-        self['lnd'] = self.__compute_lnd(case, coupling_times)
-        self['ocn'] = self.__compute_ocn(case, coupling_times)
-        self['rof'] = self.__compute_rof(case, coupling_times)
-        self['wav'] = self.__compute_wav(case, coupling_times)
+        if 'atm_cpl_dt' in coupling_times.keys():
+            self['atm'] = self.__compute_atm(case, coupling_times)
+        if 'atm_glc_dt' in coupling_times.keys():
+            self['glc'] = self.__compute_glc(case, coupling_times)
+        if 'atm_ice_dt' in coupling_times.keys():
+            self['ice'] = self.__compute_ice(case, coupling_times)
+        if 'atm_lnd_dt' in coupling_times.keys():
+            self['lnd'] = self.__compute_lnd(case, coupling_times)
+        if 'atm_ocn_dt' in coupling_times.keys():
+            self['ocn'] = self.__compute_ocn(case, coupling_times)
+        if 'atm_rof_dt' in coupling_times.keys():
+            self['rof'] = self.__compute_rof(case, coupling_times)
+        if 'atm_wav_dt' in coupling_times.keys():
+            self['wav'] = self.__compute_wav(case, coupling_times)
 
     ###############################################
     def __compute_atm(self, case, coupling_times):
