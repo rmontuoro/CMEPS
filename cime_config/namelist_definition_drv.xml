@@ -2766,7 +2766,7 @@
       Whether Pause signals are active for component atm
     </desc>
     <values>
-      <value>$PAUSE_ACTIVE_ATM</value>
+      <value COMP_ATM_ACTIVE="True">$PAUSE_ACTIVE_ATM</value>
     </values>
   </entry>
 
@@ -2778,7 +2778,7 @@
       Whether Pause signals are active for component CPL
     </desc>
     <values>
-      <value>$PAUSE_ACTIVE_CPL</value>
+      <value COMP_CPL_ACTIVE="True">$PAUSE_ACTIVE_CPL</value>
     </values>
   </entry>
 
@@ -2790,7 +2790,7 @@
       Whether Pause signals are active for component ocn
     </desc>
     <values>
-      <value>$PAUSE_ACTIVE_OCN</value>
+      <value COMP_OCN_ACTIVE="True">$PAUSE_ACTIVE_OCN</value>
     </values>
   </entry>
 
@@ -2802,7 +2802,7 @@
       Whether Pause signals are active for component wav
     </desc>
     <values>
-      <value>$PAUSE_ACTIVE_WAV</value>
+      <value COMP_WAV_ACTIVE="True">$PAUSE_ACTIVE_WAV</value>
     </values>
   </entry>
 
@@ -2814,7 +2814,7 @@
       Whether Pause signals are active for component glc
     </desc>
     <values>
-      <value>$PAUSE_ACTIVE_GLC</value>
+      <value COMP_GLC_ACTIVE="True">$PAUSE_ACTIVE_GLC</value>
     </values>
   </entry>
 
@@ -2826,7 +2826,7 @@
       Whether Pause signals are active for component rof
     </desc>
     <values>
-      <value>$PAUSE_ACTIVE_ROF</value>
+      <value COMP_ROF_ACTIVE="True">$PAUSE_ACTIVE_ROF</value>
     </values>
   </entry>
 
@@ -2838,7 +2838,7 @@
       Whether Pause signals are active for component ice
     </desc>
     <values>
-      <value>$PAUSE_ACTIVE_ICE</value>
+      <value COMP_ICE_ACTIVE="True">$PAUSE_ACTIVE_ICE</value>
     </values>
   </entry>
 
@@ -2850,7 +2850,7 @@
       Whether Pause signals are active for component lnd
     </desc>
     <values>
-      <value>$PAUSE_ACTIVE_LND</value>
+      <value COMP_LND_ACTIVE="True">$PAUSE_ACTIVE_LND</value>
     </values>
   </entry>
 
@@ -2879,7 +2879,7 @@
       set by NTASKS_ATM in env_configure.xml.
     </desc>
     <values>
-      <value>$NTASKS_ATM</value>
+      <value COMP_ATM_ACTIVE="True">$NTASKS_ATM</value>
     </values>
   </entry>
 
@@ -2892,7 +2892,7 @@
       set by NTHRDS_ATM in env_configure.xml.
     </desc>
     <values>
-      <value>$NTHRDS_ATM</value>
+      <value COMP_ATM_ACTIVE="True">$NTHRDS_ATM</value>
     </values>
   </entry>
 
@@ -2905,7 +2905,7 @@
       set by ROOTPE_ATM in env_configure.xml.
     </desc>
     <values>
-      <value>$ROOTPE_ATM</value>
+      <value COMP_ATM_ACTIVE="True">$ROOTPE_ATM</value>
     </values>
   </entry>
 
@@ -2918,7 +2918,7 @@
       set by PSTRID_ATM in env_configure.xml.
     </desc>
     <values>
-      <value>$PSTRID_ATM</value>
+      <value COMP_ATM_ACTIVE="True">$PSTRID_ATM</value>
     </values>
   </entry>
 
@@ -2931,7 +2931,7 @@
       set by NTASKS_LND in env_configure.xml.
     </desc>
     <values>
-      <value>$NTASKS_LND</value>
+      <value COMP_LND_ACTIVE="True">$NTASKS_LND</value>
     </values>
   </entry>
 
@@ -2944,7 +2944,7 @@
       set by NTHRDS_LND in env_configure.xml.
     </desc>
     <values>
-      <value>$NTHRDS_LND</value>
+      <value COMP_LND_ACTIVE="True">$NTHRDS_LND</value>
     </values>
   </entry>
 
@@ -2957,7 +2957,7 @@
       set by ROOTPE_LND in env_configure.xml.
     </desc>
     <values>
-      <value>$ROOTPE_LND</value>
+      <value COMP_LND_ACTIVE="True">$ROOTPE_LND</value>
     </values>
   </entry>
 
@@ -2970,7 +2970,7 @@
       set by PSTRID_LND in env_configure.xml.
     </desc>
     <values>
-      <value>$PSTRID_LND</value>
+      <value COMP_LND_ACTIVE="True">$PSTRID_LND</value>
     </values>
   </entry>
 
@@ -2983,7 +2983,7 @@
       set by NTASKS_ICE in env_configure.xml.
     </desc>
     <values>
-      <value>$NTASKS_ICE</value>
+      <value COMP_ICE_ACTIVE="True">$NTASKS_ICE</value>
     </values>
   </entry>
 
@@ -2996,7 +2996,7 @@
       set by NTHRDS_ICE in env_configure.xml.
     </desc>
     <values>
-      <value>$NTHRDS_ICE</value>
+      <value COMP_ICE_ACTIVE="True">$NTHRDS_ICE</value>
     </values>
   </entry>
 
@@ -3009,7 +3009,7 @@
       set by ROOTPE_ICE in env_configure.xml.
     </desc>
     <values>
-      <value>$ROOTPE_ICE</value>
+      <value COMP_ICE_ACTIVE="True">$ROOTPE_ICE</value>
     </values>
   </entry>
 
@@ -3022,7 +3022,7 @@
       set by PSTRID_ICE in env_configure.xml.
     </desc>
     <values>
-      <value>$PSTRID_ICE</value>
+      <value COMP_ICE_ACTIVE="True">$PSTRID_ICE</value>
     </values>
   </entry>
 
@@ -3035,7 +3035,7 @@
       set by NTASKS_OCN in env_configure.xml.
     </desc>
     <values>
-      <value>$NTASKS_OCN</value>
+      <value COMP_OCN_ACTIVE="True">$NTASKS_OCN</value>
     </values>
   </entry>
 
@@ -3048,7 +3048,7 @@
       set by NTHRDS_OCN in env_configure.xml.
     </desc>
     <values>
-      <value>$NTHRDS_OCN</value>
+      <value COMP_OCN_ACTIVE="True">$NTHRDS_OCN</value>
     </values>
   </entry>
 
@@ -3061,7 +3061,7 @@
       set by ROOTPE_OCN in env_configure.xml.
     </desc>
     <values>
-      <value>$ROOTPE_OCN</value>
+      <value COMP_OCN_ACTIVE="True">$ROOTPE_OCN</value>
     </values>
   </entry>
 
@@ -3074,7 +3074,7 @@
       set by PSTRID_OCN in env_configure.xml.  default: 1
     </desc>
     <values>
-      <value>$PSTRID_OCN</value>
+      <value COMP_OCN_ACTIVE="True">$PSTRID_OCN</value>
     </values>
   </entry>
 
@@ -3087,7 +3087,7 @@
       set by NTASKS_GLC in env_configure.xml.
     </desc>
     <values>
-      <value>$NTASKS_GLC</value>
+      <value COMP_GLC_ACTIVE="True">$NTASKS_GLC</value>
     </values>
   </entry>
 
@@ -3100,7 +3100,7 @@
       set by NTHRDS_GLC in env_configure.xml.
     </desc>
     <values>
-      <value>$NTHRDS_GLC</value>
+      <value COMP_GLC_ACTIVE="True">$NTHRDS_GLC</value>
     </values>
   </entry>
 
@@ -3113,7 +3113,7 @@
       set by ROOTPE_GLC in env_configure.xml.
     </desc>
     <values>
-      <value>$ROOTPE_GLC</value>
+      <value COMP_GLC_ACTIVE="True">$ROOTPE_GLC</value>
     </values>
   </entry>
 
@@ -3126,7 +3126,7 @@
       set by PSTRID_GLC in env_configure.xml.
     </desc>
     <values>
-      <value>$PSTRID_GLC</value>
+      <value COMP_GLC_ACTIVE="True">$PSTRID_GLC</value>
     </values>
   </entry>
 
@@ -3139,7 +3139,7 @@
       set by NTASKS_WAV in env_configure.xml.
     </desc>
     <values>
-      <value>$NTASKS_WAV</value>
+      <value COMP_WAV_ACTIVE="True">$NTASKS_WAV</value>
     </values>
   </entry>
 
@@ -3152,7 +3152,7 @@
       set by NTHRDS_WAV in env_configure.xml.
     </desc>
     <values>
-      <value>$NTHRDS_WAV</value>
+      <value COMP_WAV_ACTIVE="True">$NTHRDS_WAV</value>
     </values>
   </entry>
 
@@ -3165,7 +3165,7 @@
       set by ROOTPE_WAV in env_configure.xml.
     </desc>
     <values>
-      <value>$ROOTPE_WAV</value>
+      <value COMP_WAV_ACTIVE="True">$ROOTPE_WAV</value>
     </values>
   </entry>
 
@@ -3178,7 +3178,7 @@
       set by PSTRID_WAV in env_configure.xml.
     </desc>
     <values>
-      <value>$PSTRID_WAV</value>
+      <value COMP_WAV_ACTIVE="True">$PSTRID_WAV</value>
     </values>
   </entry>
 
@@ -3191,7 +3191,7 @@
       set by NTASKS_LND in env_configure.xml.
     </desc>
     <values>
-      <value>$NTASKS_ROF</value>
+      <value COMP_ROF_ACTIVE="True">$NTASKS_ROF</value>
     </values>
   </entry>
 
@@ -3204,7 +3204,7 @@
       set by NTHRDS_ROF in env_configure.xml.
     </desc>
     <values>
-      <value>$NTHRDS_ROF</value>
+      <value COMP_ROF_ACTIVE="True">$NTHRDS_ROF</value>
     </values>
   </entry>
 
@@ -3217,7 +3217,7 @@
       set by ROOTPE_LND in env_configure.xml.
     </desc>
     <values>
-      <value>$ROOTPE_ROF</value>
+      <value COMP_ROF_ACTIVE="True">$ROOTPE_ROF</value>
     </values>
   </entry>
 
@@ -3230,7 +3230,7 @@
       set by PSTRID_LND in env_configure.xml.
     </desc>
     <values>
-      <value>$PSTRID_ROF</value>
+      <value COMP_ROF_ACTIVE="True">$PSTRID_ROF</value>
     </values>
   </entry>
 
@@ -3243,7 +3243,7 @@
       set by NTASKS_ESP in env_configure.xml.
     </desc>
     <values>
-      <value>$NTASKS_ESP</value>
+      <value COMP_ESP_ACTIVE="True">$NTASKS_ESP</value>
     </values>
   </entry>
 
@@ -3256,7 +3256,7 @@
       set by NTHRDS_ESP in env_configure.xml.
     </desc>
     <values>
-      <value>$NTHRDS_ESP</value>
+      <value COMP_ESP_ACTIVE="True">$NTHRDS_ESP</value>
     </values>
   </entry>
 
@@ -3269,7 +3269,7 @@
       set by ROOTPE_ESP in env_configure.xml.
     </desc>
     <values>
-      <value>$ROOTPE_ESP</value>
+      <value COMP_ESP_ACTIVE="True">$ROOTPE_ESP</value>
     </values>
   </entry>
 
@@ -3282,7 +3282,7 @@
       set by PSTRID_ESP in env_configure.xml.
     </desc>
     <values>
-      <value>$PSTRID_ESP</value>
+      <value COMP_ESP_ACTIVE="True">$PSTRID_ESP</value>
     </values>
   </entry>
 
@@ -3295,7 +3295,7 @@
       set by NTASKS_CPL in env_configure.xml.
     </desc>
     <values>
-      <value>$NTASKS_CPL</value>
+      <value COMP_CPL_ACTIVE="True">$NTASKS_CPL</value>
     </values>
   </entry>
 
@@ -3308,7 +3308,7 @@
       set by NTHRDS_CPL in env_configure.xml.
     </desc>
     <values>
-      <value>$NTHRDS_CPL</value>
+      <value COMP_CPL_ACTIVE="True">$NTHRDS_CPL</value>
     </values>
   </entry>
 
@@ -3321,7 +3321,7 @@
       set by ROOTPE_CPL in env_configure.xml.
     </desc>
     <values>
-      <value>$ROOTPE_CPL</value>
+      <value COMP_CPL_ACTIVE="True">$ROOTPE_CPL</value>
     </values>
   </entry>
 
@@ -3334,7 +3334,7 @@
       set by PSTRID_CPL in env_configure.xml.
     </desc>
     <values>
-      <value>$PSTRID_CPL</value>
+      <value COMP_CPL_ACTIVE="True">$PSTRID_CPL</value>
     </values>
   </entry>
 
@@ -3750,7 +3750,7 @@
       Whether Data Assimilation is on for component atm
     </desc>
     <values>
-      <value>$DATA_ASSIMILATION_ATM</value>
+      <value COMP_ATM_ACTIVE="True">$DATA_ASSIMILATION_ATM</value>
     </values>
   </entry>
 
@@ -3762,7 +3762,7 @@
       Whether Data Assimilation is on for component CPL
     </desc>
     <values>
-      <value>$DATA_ASSIMILATION_CPL</value>
+      <value COMP_CPL_ACTIVE="True">$DATA_ASSIMILATION_CPL</value>
     </values>
   </entry>
 
@@ -3774,7 +3774,7 @@
       Whether Data Assimilation is on for component ocn
     </desc>
     <values>
-      <value>$DATA_ASSIMILATION_OCN</value>
+      <value COMP_OCN_ACTIVE="True">$DATA_ASSIMILATION_OCN</value>
     </values>
   </entry>
 
@@ -3786,7 +3786,7 @@
       Whether Data Assimilation is on for component wav
     </desc>
     <values>
-      <value>$DATA_ASSIMILATION_WAV</value>
+      <value COMP_WAV_ACTIVE="True">$DATA_ASSIMILATION_WAV</value>
     </values>
   </entry>
 
@@ -3798,7 +3798,7 @@
       Whether Data Assimilation is on for component glc
     </desc>
     <values>
-      <value>$DATA_ASSIMILATION_GLC</value>
+      <value COMP_GLC_ACTIVE="True">$DATA_ASSIMILATION_GLC</value>
     </values>
   </entry>
 
@@ -3810,7 +3810,7 @@
       Whether Data Assimilation is on for component rof
     </desc>
     <values>
-      <value>$DATA_ASSIMILATION_ROF</value>
+      <value COMP_ROF_ACTIVE="True">$DATA_ASSIMILATION_ROF</value>
     </values>
   </entry>
 
@@ -3822,7 +3822,7 @@
       Whether Data Assimilation is on for component ice
     </desc>
     <values>
-      <value>$DATA_ASSIMILATION_ICE</value>
+      <value COMP_ICE_ACTIVE="True">$DATA_ASSIMILATION_ICE</value>
     </values>
   </entry>
 
@@ -3834,7 +3834,7 @@
       Whether Data Assimilation is on for component lnd
     </desc>
     <values>
-      <value>$DATA_ASSIMILATION_LND</value>
+      <value COMP_LND_ACTIVE="True">$DATA_ASSIMILATION_LND</value>
     </values>
   </entry>
 
