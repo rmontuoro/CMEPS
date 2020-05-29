@@ -33,9 +33,9 @@ module med_phases_prep_ocn_mod
   public :: med_phases_prep_ocn_accum_fast
   public :: med_phases_prep_ocn_accum_avg
 
-  private ::  med_phases_prep_ocn_custom_cesm
-  private ::  med_phases_prep_ocn_custom_nems
-  private ::  med_phases_prep_ocn_custom_nemsdata
+  private :: med_phases_prep_ocn_custom_cesm
+  private :: med_phases_prep_ocn_custom_nems
+  private :: med_phases_prep_ocn_custom_nemsdata
 
   character(*), parameter :: u_FILE_u  = &
        __FILE__
@@ -424,6 +424,12 @@ contains
     ! If cice IS NOT PRESENT
     ! -----------------------
     if (.not. is_local%wrap%comp_present(compice)) then
+       ! Compute total swnet to ocean independent of swpen from sea-ice
+       do n = 1,lsize
+          fswabsv  = Faxa_swvdr(n) * (1.0_R8 - avsdr(n)) + Faxa_swvdf(n) * (1.0_R8 - avsdf(n))
+          fswabsi  = Faxa_swndr(n) * (1.0_R8 - anidr(n)) + Faxa_swndf(n) * (1.0_R8 - anidf(n))
+          Foxx_swnet(n) = fswabsv + fswabsi
+       end do
        ! Compute sw export to ocean bands if required
        if (export_swnet_by_bands) then
           c1 = 0.285; c2 = 0.285; c3 = 0.215; c4 = 0.215
@@ -432,12 +438,6 @@ contains
           Foxx_swnet_idr(:) = c3 * Foxx_swnet(:)
           Foxx_swnet_idf(:) = c4 * Foxx_swnet(:)
        end if
-       ! Compute total swnet to ocean independent of swpen from sea-ice
-       do n = 1,lsize
-          fswabsv  = Faxa_swvdr(n) * (1.0_R8 - avsdr(n)) + Faxa_swvdf(n) * (1.0_R8 - avsdf(n))
-          fswabsi  = Faxa_swndr(n) * (1.0_R8 - anidr(n)) + Faxa_swndf(n) * (1.0_R8 - anidf(n))
-          Foxx_swnet(n) = fswabsv + fswabsi
-       end do
     end if
 
     ! -----------------------
