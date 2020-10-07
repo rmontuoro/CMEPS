@@ -35,3 +35,10 @@ cime_config/buildexec
 *.exe
 *.out
 *.app
+
+# Temporary files created by editors
+*.swp
+
+# Directories people create
+build*/
+install*/
